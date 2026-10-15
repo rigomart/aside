@@ -38,3 +38,6 @@ The owner doesn't review code, so an agent can't end a turn with a broken build 
 
 ## 10. Changes are proven with throwaway XCUITests against a separate Verify build
 An agent proves a user-visible change by writing a short UI test that drives the real app (hotkey, menu bar, typing) and running it with `scripts/verify` (`.claude/skills/verify-aside`). XCUITest ships with Xcode, so nothing is added. The Verify build has its own bundle ID, URL scheme and hotkey, so it runs while the owner's copy is open. UI tests take over the screen and need about 30 s for the current examples, so they are not in `make check` or CI; adding them is the owner's call.
+
+## 11. GitHub Actions runs `make check` on pushes to main and on pull requests
+`.github/workflows/ci.yml` runs on the `macos-26` image, whose default Xcode (26.x) is the oldest the README supports, so CI catches anything that only builds on the owner's newer Xcode. The runner has no signing certificate, so CI builds unsigned via `XCODEBUILD_FLAGS=CODE_SIGNING_ALLOWED=NO`. The repo is public, so macOS minutes are free; if it goes private they bill at 10x, and CI would be worth trimming or dropping.

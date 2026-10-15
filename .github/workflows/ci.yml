@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # The image's default Xcode (/Applications/Xcode.app) is 26.x, the oldest the README supports.
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: brew install xcodegen
+      # The runner has no Apple Development certificate, so the app is built unsigned.
+      - run: make check XCODEBUILD_FLAGS=CODE_SIGNING_ALLOWED=NO
