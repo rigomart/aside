@@ -41,3 +41,15 @@ An agent proves a user-visible change by writing a short UI test that drives the
 
 ## 11. GitHub Actions runs `make check` on pushes to main and on pull requests
 `.github/workflows/ci.yml` runs on the `macos-26` image, whose default Xcode (26.x) is the oldest the README supports, so CI catches anything that only builds on the owner's newer Xcode. The runner has no signing certificate, so CI builds unsigned via `XCODEBUILD_FLAGS=CODE_SIGNING_ALLOWED=NO`. The repo is public, so macOS minutes are free; if it goes private they bill at 10x, and CI would be worth trimming or dropping.
+
+## 12. Sonnet answers
+The owner chose quality over speed on 2026-10-15; measured first-token latency is about the same as Haiku (decision 3). It's `model` in `AssistantSession`.
+
+## 13. A new conversation after 10 minutes idle, or on Command-N
+Chosen by the owner on 2026-10-15. Idle means no question or finished answer for 10 minutes; the check runs when the panel opens, so an open panel is never cleared under the owner. The New conversation button (Command-N) shows once there is a transcript.
+
+## 14. Web search and web fetch are claude's only tools, set on the command line
+Quick lookups need the web, and nothing else is needed until calendar and notes (M4). `--tools`, `--allowedTools` and `--permission-prompts none` say this in one place, so the workspace holds only `CLAUDE.md` and no `.claude/settings.json`. Aside rewrites `CLAUDE.md` on every start so it always matches the app; to change the assistant's voice, change `Workspace.instructions`.
+
+## 15. If claude exits, the next question starts a new conversation
+The panel says so, and the next question starts a fresh process. Resuming with `--resume <session id>` would keep the context but adds code for something that hasn't happened outside tests. Revisit if the owner sees "claude stopped" in daily use.
