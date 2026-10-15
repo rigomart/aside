@@ -4,6 +4,8 @@ export DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer
 DERIVED := build/DerivedData
 APP := $(DERIVED)/Build/Products/Debug/Aside.app
 BUNDLE_ID := com.rigomart.aside
+# Extra xcodebuild settings; CI uses it to build without a signing certificate.
+XCODEBUILD_FLAGS ?=
 
 .PHONY: generate build test check run stop logs clean
 
@@ -12,7 +14,7 @@ generate:
 
 build: generate
 	xcodebuild -project Aside.xcodeproj -scheme Aside -configuration Debug \
-		-destination 'platform=macOS,arch=arm64' -derivedDataPath $(DERIVED) -quiet build
+		-destination 'platform=macOS,arch=arm64' -derivedDataPath $(DERIVED) -quiet $(XCODEBUILD_FLAGS) build
 
 test:
 	swift test --package-path Packages/AsideCore
