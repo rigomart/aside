@@ -1,0 +1,43 @@
+name: Aside
+options:
+  bundleIdPrefix: com.rigomart
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: WHZ7FDCNMT
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: Apple Development
+    ENABLE_HARDENED_RUNTIME: NO
+packages:
+  AsideCore:
+    path: Packages/AsideCore
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    exactVersion: 3.1.0
+targets:
+  Aside:
+    type: application
+    platform: macOS
+    sources: [App/Sources]
+    dependencies:
+      - package: AsideCore
+      - package: KeyboardShortcuts
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Aside
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.rigomart.aside
+            CFBundleURLSchemes: [aside]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rigomart.aside
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        ENABLE_APP_SANDBOX: NO
