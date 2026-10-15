@@ -23,11 +23,23 @@ class VerifyTestCase: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Launches the Verify build with the verification hotkey. Pass launch arguments to arrange a precondition.
-    @MainActor func launch(_ arguments: [String] = []) -> XCUIApplication {
+    /// This instance's folder, `.verify/<name>/`. The test runner sits in its `DerivedData/Build/Products/Verify/`.
+    static let instanceDirectory = Bundle.main.bundleURL
+        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent()
+
+    /// `UITests/Support/fake-claude`, which answers "Answer <n>: <question>". Pass it to `launch(claude:)`.
+    static let fakeClaude = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "fake-claude").path
+
+    /// Launches the Verify build with the verification hotkey and its own data folder under
+    /// `.verify/<name>/data/<stamp>/`. `claude` sets the claude path setting (`fakeClaude`, or a missing path);
+    /// nil finds the owner's real claude. Pass launch arguments to arrange other preconditions.
+    @MainActor func launch(claude: String? = nil, _ arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-ApplePersistenceIgnoreState", "YES", "-KeyboardShortcuts_togglePanel", Self.hotkeyDefault]
+            + (claude.map { ["-claudePath", $0] } ?? [])
             + arguments
+        app.launchEnvironment["ASIDE_DATA_DIRECTORY"] = Self.instanceDirectory.appending(path: "data/\(stamp)").path
         app.launch()
         launched.append(app)
         addTeardownBlock { @MainActor in app.terminate() }

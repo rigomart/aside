@@ -3,16 +3,19 @@ import AsideCore
 import KeyboardShortcuts
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let model = PanelModel()
-    private lazy var panel = PanelController(model: model)
+    private let session = AssistantSession(
+        dataDirectory: AppDelegate.dataDirectory,
+        claudePath: UserDefaults.standard.string(forKey: "claudePath")
+    )
+    private lazy var panel = PanelController(session: session)
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = makeStatusItem()
+        NSApp.mainMenu = makeEditMenu()
         KeyboardShortcuts.onKeyUp(for: .togglePanel) { [weak self] in
             self?.panel.toggle()
         }
-        Task { await locateClaude() }
         Log.app.info("Launched")
     }
 
@@ -29,10 +32,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func locateClaude() async {
-        let path = await Task.detached { ClaudeLocator.live.locate() }.value
-        model.claude = path.map(PanelModel.ClaudeStatus.found) ?? .missing
-        Log.claude.info("claude: \(path ?? "not found", privacy: .public)")
+    /// `~/Library/Application Support/Aside`, or `ASIDE_DATA_DIRECTORY` from the launch environment,
+    /// which UI tests set so they never share the owner's data.
+    private static var dataDirectory: URL {
+        if let path = ProcessInfo.processInfo.environment["ASIDE_DATA_DIRECTORY"] {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        return URL.applicationSupportDirectory.appending(path: "Aside", directoryHint: .isDirectory)
     }
 
     private func makeStatusItem() -> NSStatusItem {
@@ -44,6 +50,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Quit Aside", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
         return item
+    }
+
+    /// Never shown, since Aside has no menu bar of its own, but text fields get Command-X, C, V, A and Z
+    /// from these items' shortcuts.
+    private func makeEditMenu() -> NSMenu {
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let main = NSMenu()
+        main.addItem(withTitle: "Edit", action: nil, keyEquivalent: "").submenu = edit
+        return main
     }
 
     @objc private func showPanel() {

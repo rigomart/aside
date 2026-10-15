@@ -13,3 +13,14 @@ Checks no automated test can reach. Run the section for the milestone being hand
 7. Press the hotkey twice: it opens, then closes.
 8. Menu bar: the speech-bubble icon shows; "Show Aside" opens the panel; "Quit Aside" quits.
 9. The line under the field shows `claude: <path>`, not "not found".
+
+## Text loop (M1)
+
+1. Open the panel, type a question and press Return: the field clears, "Thinking…" shows, then the answer appears a few words at a time.
+2. Ask a follow-up that only makes sense with the first answer ("shorter, please"): it answers in context.
+3. Ask something that needs the web ("what's the weather in Paris right now?"): "Searching the web…" shows, then the answer.
+4. Copy a sentence and paste it into the field with Command-V. Select part of an answer with the mouse and copy it with Command-C: it pastes elsewhere.
+5. Ask for something long, press Esc while it's still answering, wait a few seconds, reopen: the full answer is there.
+6. Put Safari in full screen, open the panel and ask something long: the panel grows downward over Safari, then scrolls.
+7. Press Command-N: the panel empties. Ask "what did I just ask you?": it doesn't know.
+8. After an answer, leave the panel closed for over 10 minutes, then reopen: the panel is empty.

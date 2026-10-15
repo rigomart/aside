@@ -10,6 +10,17 @@ extension XCUIApplication {
 
     /// The line under the field that says where `claude` is, or that it is missing.
     var claudeStatus: XCUIElement { panel.staticTexts["claudeStatus"] }
+
+    /// The transcript's questions, answers and errors, oldest first.
+    var questions: XCUIElementQuery { panel.staticTexts.matching(identifier: "question") }
+    var answers: XCUIElementQuery { panel.staticTexts.matching(identifier: "answer") }
+    var errors: XCUIElementQuery { panel.descendants(matching: .any).matching(identifier: "error") }
+
+    /// "Thinking…" or what Claude is doing, while an answer is still coming.
+    var activity: XCUIElement { panel.staticTexts["activity"] }
+
+    /// The button that starts a new conversation (Command-N). Shown once there is a transcript.
+    var newConversationButton: XCUIElement { panel.buttons["New conversation ⌘N"] }
 }
 
 extension VerifyTestCase {
@@ -68,6 +79,19 @@ extension VerifyTestCase {
             opened.fulfill()
         }
         wait(for: [opened], timeout: 10)
+    }
+
+    /// Types `question` into the open panel and presses Return.
+    @MainActor func ask(_ question: String, in app: XCUIApplication) {
+        app.askField.typeText(question + "\n")
+    }
+
+    /// Waits until `element`'s value is `expected`, and fails with what it showed instead.
+    @MainActor func waitForValue(_ expected: String, of element: XCUIElement, timeout: TimeInterval = 10,
+                                 file: StaticString = #filePath, line: UInt = #line) {
+        let shows = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [shows], timeout: timeout), .completed,
+                       "Expected \"\(expected)\", saw \"\(element.value as? String ?? "nothing")\"", file: file, line: line)
     }
 
     /// Waits for the panel to open with keyboard focus in its field, and returns it.

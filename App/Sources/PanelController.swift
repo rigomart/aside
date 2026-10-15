@@ -5,9 +5,11 @@ import SwiftUI
 /// Owns the floating panel: where it appears, and how it opens and closes.
 final class PanelController {
     private let panel: FloatingPanel
+    private let session: AssistantSession
 
-    init(model: PanelModel) {
-        panel = FloatingPanel(content: PanelView(model: model))
+    init(session: AssistantSession) {
+        self.session = session
+        panel = FloatingPanel(content: PanelView(session: session))
     }
 
     func toggle() {
@@ -15,8 +17,9 @@ final class PanelController {
     }
 
     /// Shows the panel near the top of the screen the pointer is on, without activating the app,
-    /// so the app the user was in stays frontmost.
+    /// so the app the user was in stays frontmost. Starts claude, so it's ready for the question.
     func show() {
+        session.prepare()
         let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
         if let frame = screen?.visibleFrame {
             let size = panel.frame.size

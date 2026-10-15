@@ -59,7 +59,7 @@ targets:
     platform: macOS
     sources:
       - path: UITests
-        excludes: ["**/.gitkeep"]
+        excludes: ["**/.gitkeep", "Support/fake-claude"]
     dependencies:
       - target: Aside
     settings:

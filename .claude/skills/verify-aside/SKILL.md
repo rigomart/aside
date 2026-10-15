@@ -28,9 +28,9 @@ Every command prints one JSON object. `scripts/verify --help` lists them all.
 
 ## Users and test data
 
-Aside has no accounts and keeps no state of its own yet. The only stored setting is the hotkey, in the `com.rigomart.aside.verify` defaults domain, and `launch()` overrides it with a launch argument every time. Each `launch()` starts a fresh process with `-ApplePersistenceIgnoreState YES`. Use `stamp` (unique per test) in anything you type, so a value you assert can only have come from your test.
+Aside has no accounts. Its settings are the hotkey and the claude path (`claudePath`), in the `com.rigomart.aside.verify` defaults domain; `launch()` sets both with launch arguments every time. Its only files are claude's workspace, and `launch()` points `ASIDE_DATA_DIRECTORY` at `.verify/<name>/data/<stamp>/`, so tests never share the owner's data or each other's. Each `launch()` starts a fresh process with `-ApplePersistenceIgnoreState YES`. Use `stamp` (unique per test) in anything you type, so a value you assert can only have come from your test.
 
-When a change adds state on disk (conversations, the M1 workspace), add a data-directory launch-environment seam to the app and have `launch()` point it into `.verify/<name>/`, so tests never share the owner's data. Record that in this skill.
+**Which claude.** `launch(claude: Self.fakeClaude)` points Aside at `UITests/Support/fake-claude`, which answers "Answer <n>: <question>" (n counts from 1 per process) and exits with status 3 and "something broke" on a question containing "boom". Use it to assert exact text, follow-ups, new conversations and failures. `launch(claude: "/nonexistent/claude")` arranges a missing claude. `launch()` uses the owner's real claude: use it when the change is about what real answers look like or about the claude process itself. Real answers take 2–30 s and cost a little subscription usage; ask for something checkable (`"Reply with only the word \(stamp), nothing more."`) and assert with `CONTAINS`, because wording varies by design.
 
 ## Prove a change
 
@@ -68,8 +68,10 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 
 | Need | Use |
 | --- | --- |
-| Launch Aside Verify | `launch()`, or `launch(["-Arg", "value"])` to arrange a precondition through a user setting |
+| Launch Aside Verify | `launch()`, `launch(claude: Self.fakeClaude)` (see Which claude), or `launch(["-Arg", "value"])` to arrange a precondition through a user setting |
 | The panel, its field, the claude line | `app.panel` (a dialog, identifier `panel`), `app.askField` (placeholder "Ask anything"), `app.claudeStatus` (identifier `claudeStatus`) |
+| Ask, and read the transcript | `ask("What is \(stamp)?", in: app)` (types it and Return); `app.questions`, `app.answers`, `app.errors` (queries, oldest first: `.element(boundBy: 0)`); `app.activity` ("Thinking…", "Searching the web…"); `app.newConversationButton` |
+| Wait for exact text | `waitForValue("Answer 1: What is \(stamp)?", of: app.answers.element(boundBy: 0))` |
 | Open with the hotkey, another app in front | `let calculator = launchFrontApp()`, then `pressHotkey(over: calculator, in: app)` |
 | Open from the menu bar | `openPanelFromMenuBar(app)`: status item `Aside`, menu item `Show Aside` |
 | Open when how it opens is not the change | `openPanelWithURL(app)` (`aside-verify://show`) |
@@ -106,6 +108,7 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 | Another app in full screen, another Space, Mission Control, Stage Manager | No test reaches them. Manual tests 5 and 6 in `docs/manual-tests.md`. |
 | Which display the panel opens on | It follows the pointer, which a person may be moving. Manual test 1. |
 | Typing going back to the previous app after Esc | Works with a real keyboard (the owner checked), but XCUITest can't show it (see Gotchas). Manual test 3. |
+| How fast an answer streams; copying answer text; the 10-minute idle reset | Manual tests in "Text loop (M1)". The idle rule is unit-tested in `AssistantSessionTests`. |
 | Sound, speech, the microphone (M2–M3) | Prove what the panel shows (listening or speaking indicator, transcript). The sound itself is checked by ear. |
 | Light appearance on a light system, `-AppleInterfaceStyle Dark` | Not checked; this Mac runs dark. |
 
@@ -126,6 +129,7 @@ and press Control-Option-Shift-Space. Quit it from its menu bar icon (the second
 
 - **The hotkey step takes about 10 s.** XCUITest sends the key to the front app and waits up to 10 s for it to arrive; the hotkey takes it first, so the wait always runs out. That is expected, not a hang.
 - **XCUITest keys after Esc don't reach the app in front.** After the panel closes, XCUITest's next `typeText` to Calculator never arrives (and costs a 10 s wait), though with a real keyboard typing goes straight back to the app the owner left. This is an XCUITest limitation, not app behavior: don't assert that typing returns to the previous app; manual test 3 covers it. (It was first reported to the owner as a likely app bug; their manual check disproved it.)
+- **XCUITest can't type a lowercase "c" on this Mac.** `typeText("Please crash")` arrives as "Please rash", in TextEdit too, so it isn't Aside (checked 2026-10-15). Keep lowercase "c" out of typed text (`stamp` is uppercase, which works) and don't send it with `typeKey`. A real keyboard is unaffected.
 - **Panel screenshots.** `panel.screenshot()` and other element screenshots fail with "Image creation failed". `shot` crops a display screenshot instead. `app.screenshot()` captures the main display, not the panel's.
 - **Screen recordings** are attached only to failed tests, and cover only the main display. The panel opens on the display the pointer is on, which may be another one; `failure-display*.png` covers every display.
 - **Calculator.** `launchFrontApp()` quits a running Calculator and relaunches it. A run killed partway can leave it open; quit it.

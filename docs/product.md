@@ -20,9 +20,9 @@ The Claude desktop app's quick entry opens the full app. ChatGPT's Option-Space 
 
 | # | Milestone | Status |
 | --- | --- | --- |
-| 0 | Setup: project, build, hotkey and panel shell, docs, latency measured | Done, pending the owner's manual checks |
-| 1 | Text loop: type, streamed answer, follow-ups in one conversation, process started on hotkey press | Next |
-| 2 | Voice input: live transcript, sends when you stop talking | |
+| 0 | Setup: project, build, hotkey and panel shell, docs, latency measured | Done |
+| 1 | Text loop: type, streamed answer, follow-ups in one conversation, process started on hotkey press | Done, pending the owner's manual checks |
+| 2 | Voice input: live transcript, sends when you stop talking | Next |
 | 3 | Voice output: sentence by sentence, skips markdown and code, interruptible | |
 | 4 | Tools: calendar read and create with confirmation in the panel, notes | |
 | 5 | Polish: settings, launch at login | |
@@ -36,8 +36,6 @@ Defaults agents use until the owner decides. Move each to [decisions.md](decisio
 | Question | Default |
 | --- | --- |
 | Voice trigger: hold the hotkey to talk, or tap and stop on silence? | Tap, stop on silence |
-| Model: Haiku for speed or Sonnet for quality? | Sonnet. Measured first-token latency is about the same (see decisions) |
 | Where do notes go? | A Markdown folder the owner picks |
 | Creating calendar events: confirm first, or create and offer undo? | Confirm in the panel |
-| When does a new conversation start? | After 10 minutes idle, or on request |
 | Read answers aloud by default? | Only when the question was spoken |
