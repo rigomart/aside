@@ -26,6 +26,7 @@ struct PanelView: View {
             Text(claudeStatus)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilityIdentifier("claudeStatus")
         }
         .padding(18)
         .frame(width: 640, alignment: .leading)

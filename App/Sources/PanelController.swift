@@ -46,6 +46,7 @@ private final class FloatingPanel: NSPanel {
         hasShadow = true
         isMovableByWindowBackground = true
         animationBehavior = .utilityWindow
+        identifier = NSUserInterfaceItemIdentifier("panel")
 
         let hosting = NSHostingView(rootView: content)
         contentView = hosting

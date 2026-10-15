@@ -4,6 +4,12 @@ options:
   deploymentTarget:
     macOS: "26.0"
   createIntermediateGroups: true
+# Verify builds the app for UI tests under its own bundle ID, name and URL scheme, so it runs
+# beside the owner's copy without sharing defaults, privacy grants or `aside://`.
+configs:
+  Debug: debug
+  Release: release
+  Verify: debug
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -28,16 +34,54 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: Aside
+        CFBundleDisplayName: $(ASIDE_DISPLAY_NAME)
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         LSUIElement: true
         CFBundleURLTypes:
           - CFBundleURLName: com.rigomart.aside
-            CFBundleURLSchemes: [aside]
+            CFBundleURLSchemes: [$(ASIDE_URL_SCHEME)]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rigomart.aside
+        ASIDE_DISPLAY_NAME: Aside
+        ASIDE_URL_SCHEME: aside
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_APPROACHABLE_CONCURRENCY: YES
         ENABLE_APP_SANDBOX: NO
+      configs:
+        Verify:
+          PRODUCT_BUNDLE_IDENTIFIER: com.rigomart.aside.verify
+          ASIDE_DISPLAY_NAME: Aside Verify
+          ASIDE_URL_SCHEME: aside-verify
+  AsideUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: UITests
+        excludes: ["**/.gitkeep"]
+    dependencies:
+      - target: Aside
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rigomart.aside.uitests
+        TEST_TARGET_NAME: Aside
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Aside:
+    build:
+      targets:
+        Aside: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  # UI tests take over the screen, so they have their own scheme and never run from `make check`.
+  # Run them through `scripts/verify run`.
+  AsideUITests:
+    build:
+      targets:
+        AsideUITests: [test]
+    test:
+      config: Verify
+      targets: [AsideUITests]

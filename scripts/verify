@@ -1,0 +1,236 @@
+#!/bin/bash
+# Stack CLI for verify-aside (.claude/skills/verify-aside). Builds and runs Aside's UI tests against a
+# named instance under .verify/<name>/. It never drives the app: the tests do. Every command prints one
+# JSON object: {"ok":true,...} or {"ok":false,"error":"...","hint":"..."}.
+set -uo pipefail
+
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+BUNDLE_ID=com.rigomart.aside.verify
+# UI tests take the real pointer and keyboard, so one run at a time per Mac user, across all checkouts.
+LOCK="${TMPDIR:-/tmp}/aside-verify-ui.lock"
+TEST_ALLOWANCE=120   # seconds per test
+RUN_TIMEOUT=900      # seconds for a whole xcodebuild call
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/verify <command> [--name <instance>]
+
+  up                Build the app and UI tests into .verify/<instance>/ and record the branch.
+  run <Class[/testMethod]>
+                    Rebuild what changed, run those UI tests, export evidence. Example:
+                    scripts/verify run PanelTests/testHotkeyOpensPanelOverFrontApp
+  doctor            Read-only health check: Xcode, automation mode, signing, build, lock.
+  env               Print the instance's paths and the Verify build's identity.
+  down [--purge] [--dry-run]
+                    Stop processes this instance started. --purge also deletes its build.
+                    results/, evidence/ and logs/ survive both.
+
+The instance name defaults to "default". Every command prints one JSON object.
+EOF
+}
+
+ok() { jq -cn "$@"; exit 0; }
+fail() { jq -cn --arg error "$1" --arg hint "${2:-}" '{ok:false,error:$error,hint:$hint}'; exit 1; }
+
+NAME=default PURGE=0 DRY=0 ARGS=()
+CMD=${1:-}; shift || true
+while [ $# -gt 0 ]; do
+    case $1 in
+        --name) NAME=${2:?--name needs a value}; shift 2 ;;
+        --purge) PURGE=1; shift ;;
+        --dry-run) DRY=1; shift ;;
+        -h|--help) usage; exit 0 ;;
+        *) ARGS+=("$1"); shift ;;
+    esac
+done
+[[ $NAME =~ ^[A-Za-z0-9_-]+$ ]] || fail "Bad instance name: $NAME" "Use letters, digits, - and _."
+
+DIR="$ROOT/.verify/$NAME"
+DERIVED="$DIR/DerivedData"
+PRODUCTS="$DERIVED/Build/Products"
+APP="$PRODUCTS/Verify/Aside.app"
+STATE="$DIR/instance.json"
+BRANCH=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+recorded_branch() { [ -f "$STATE" ] && jq -r .branch "$STATE"; }
+
+# Runs a command with a hard timeout (macOS has no `timeout`): SIGALRM survives exec and kills it.
+with_timeout() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+
+build() { # $1: log file
+    (cd "$ROOT" && xcodegen generate --quiet) >"$1" 2>&1 || return 1
+    with_timeout "$RUN_TIMEOUT" xcodebuild -project "$ROOT/Aside.xcodeproj" -scheme AsideUITests \
+        -destination 'platform=macOS' -derivedDataPath "$DERIVED" build-for-testing >>"$1" 2>&1
+}
+
+build_errors() { grep -E '^/.*: error: ' "$1" | sort -u | head -20 | jq -Rsc 'split("\n") | map(select(length > 0))'; }
+
+check_branch() {
+    local was; was=$(recorded_branch)
+    [ -z "$was" ] || [ "$was" = "$BRANCH" ] && return 0
+    fail "Instance '$NAME' was built on branch '$was'; this checkout is on '$BRANCH'." \
+        "Recreate it: scripts/verify down --purge --name $NAME && scripts/verify up --name $NAME"
+}
+
+lock_holder() { # prints the lock's JSON if a live process holds it
+    [ -f "$LOCK/owner.json" ] || return 1
+    local pid; pid=$(jq -r .pid "$LOCK/owner.json" 2>/dev/null)
+    kill -0 "$pid" 2>/dev/null && cat "$LOCK/owner.json"
+}
+
+take_lock() {
+    if ! mkdir "$LOCK" 2>/dev/null; then
+        local holder; holder=$(lock_holder) &&
+            fail "Another UI test run holds the screen: $holder" "Wait for it to finish, then run again."
+        rm -rf "$LOCK"; mkdir "$LOCK" || fail "Could not take the lock at $LOCK" "Run scripts/verify doctor."
+    fi
+    jq -cn --argjson pid $$ --arg instance "$NAME" --arg checkout "$ROOT" \
+        '{pid:$pid,instance:$instance,checkout:$checkout}' >"$LOCK/owner.json"
+    trap 'rm -rf "$LOCK"' EXIT
+}
+
+# Processes started for this instance: its xcodebuild, test runner and app all have its directory
+# in their command line. Never matched by name, so the owner's own Aside is never touched.
+instance_pids() { pgrep -f -- "$DIR/" | grep -vx "$$" || true; }
+
+cmd_up() {
+    check_branch
+    mkdir -p "$DIR/results" "$DIR/evidence" "$DIR/logs"
+    local log="$DIR/logs/build-$(date +%Y%m%d-%H%M%S).log"
+    build "$log" || fail "Build failed." "Fix the errors and rerun up. Errors: $(build_errors "$log") Log: $log"
+    jq -cn --arg branch "$BRANCH" --arg commit "$(git -C "$ROOT" rev-parse HEAD)" --arg at "$(date -u +%FT%TZ)" \
+        '{branch:$branch,commit:$commit,upAt:$at}' >"$STATE"
+    ok --arg instance "$NAME" --arg app "$APP" --arg log "$log" '{ok:true,instance:$instance,app:$app,buildLog:$log}'
+}
+
+cmd_run() {
+    local target=${ARGS[0]:-}
+    [ -n "$target" ] || fail "run needs a test: <Class> or <Class>/<testMethod>." "Example: scripts/verify run PanelTests"
+    [ -f "$STATE" ] || fail "Instance '$NAME' is not up." "Run: scripts/verify up --name $NAME"
+    check_branch
+    take_lock
+
+    local stamp; stamp=$(date +%Y%m%d-%H%M%S)
+    local log="$DIR/logs/run-$stamp.log" bundle="$DIR/results/$stamp.xcresult" evidence="$DIR/evidence/$stamp"
+    # Rebuild every time: the agent has usually changed the app or added a scratch test since `up`.
+    build "$log" || fail "Build failed." "Fix the errors and rerun. Errors: $(build_errors "$log") Log: $log"
+
+    local xctestrun; xctestrun=$(ls "$PRODUCTS"/AsideUITests_*.xctestrun 2>/dev/null | head -1)
+    with_timeout "$RUN_TIMEOUT" xcodebuild test-without-building -xctestrun "$xctestrun" \
+        -destination 'platform=macOS' -resultBundlePath "$bundle" \
+        -test-timeouts-enabled YES -default-test-execution-time-allowance "$TEST_ALLOWANCE" \
+        -only-testing:"AsideUITests/$target" >>"$log" 2>&1
+    local status=$?
+
+    [ -d "$bundle" ] || fail "xcodebuild exited $status without a result bundle." \
+        "Read the log: $log. If it stopped at an automation or permission prompt, see Gotchas in verify-aside."
+
+    local tests; tests=$(xcrun xcresulttool get test-results tests --path "$bundle" 2>/dev/null) ||
+        fail "xcodebuild exited $status and left an unreadable result bundle: the run was interrupted." \
+            "Run scripts/verify down --name $NAME, then run again. Log: $log"
+    tests=$(jq -c '
+        [.. | objects | select(.nodeType == "Test Case") | {
+            test: .nodeIdentifier, result, duration,
+            failures: [.children[]? | select(.nodeType == "Failure Message")
+                | {message: .name, file: .sourceLocation.filePath, line: .sourceLocation.lineNumber}],
+            skipped: [.children[]? | select(.nodeType == "Skipped Message" or .nodeType == "Skip Message") | .name]
+        }]' <<<"$tests")
+    [ "$(jq length <<<"$tests")" -gt 0 ] || fail "No test matched AsideUITests/$target." \
+        "Check the class and method names. A new scratch file is picked up by run's rebuild. Log: $log"
+
+    # Attachments come out with UUID names; file them under each test with the name the test gave them.
+    local raw="$evidence/.raw"
+    xcrun xcresulttool export attachments --path "$bundle" --output-path "$raw" >/dev/null 2>&1
+    if [ -f "$raw/manifest.json" ]; then
+        jq -r '.[] | .testIdentifier as $t | .attachments[] |
+            [$t, .exportedFileName, (.suggestedHumanReadableName | sub("_[0-9]+_[0-9A-F-]{36}"; ""))] | @tsv' \
+            "$raw/manifest.json" | while IFS=$'\t' read -r test file name; do
+            local dest="$evidence/${test//\//.}"; dest=${dest%()}
+            mkdir -p "$dest"
+            case $name in *.*) ;; *) [[ $file == *.* ]] && name="$name.${file##*.}" ;; esac
+            mv "$raw/$file" "$dest/${name//\//-}"
+        done
+        rm -rf "$raw"
+    fi
+    local shots; shots=$(find "$evidence" -type f \( -name '*.png' -o -name '*.jpeg' -o -name '*.mp4' \) 2>/dev/null |
+        sort | jq -Rsc 'split("\n") | map(select(length > 0))')
+
+    local passed=false
+    [ $status -eq 0 ] && jq -e 'all(.[]; .result == "Passed")' <<<"$tests" >/dev/null && passed=true
+    jq -cn --argjson passed $passed --argjson tests "$tests" --arg bundle "$bundle" --arg evidence "$evidence" \
+        --arg log "$log" --argjson files "$shots" \
+        '{ok:$passed, passed:$passed, tests:$tests, evidence:$evidence, screenshotsAndRecordings:$files, resultBundle:$bundle, log:$log}
+         + (if $passed then {} else {error:"Tests did not pass.",
+            hint:"Read each failure, then failure-tree*.txt (what was on screen: roles, labels, identifiers) and failure-display*.png in the evidence folder before changing anything."} end)'
+    [ $passed = true ] || exit 1
+}
+
+cmd_doctor() {
+    local checks=() healthy=true
+    add() { checks+=("$(jq -cn --arg name "$1" --argjson ok "$2" --arg detail "$3" '{name:$name,ok:$ok,detail:$detail}')")
+            [ "$2" = true ] || healthy=false; }
+
+    if xcodebuild -version >/dev/null 2>&1; then add xcode true "$(xcodebuild -version | head -1)"
+    else add xcode false "No Xcode at $DEVELOPER_DIR"; fi
+    if command -v xcodegen >/dev/null; then add xcodegen true "$(xcodegen --version)"
+    else add xcodegen false "brew install xcodegen"; fi
+    if automationmodetool 2>&1 | grep -q 'DOES NOT REQUIRE'; then add automationMode true "Runs without a password"
+    else add automationMode false "A UI test run will stop at a password prompt. The owner runs once: sudo automationmodetool enable-automationmode-without-authentication"; fi
+    if security find-identity -v -p codesigning | grep -q '"Apple Development:'; then add signing true "Apple Development identity present"
+    else add signing false "No Apple Development certificate; builds can't be signed (project.yml sets team WHZ7FDCNMT)"; fi
+
+    if [ -f "$STATE" ]; then
+        local was; was=$(recorded_branch)
+        if [ "$was" = "$BRANCH" ]; then add instance true "Up on $BRANCH since $(jq -r .upAt "$STATE")"
+        else add instance false "Built on '$was', checkout is on '$BRANCH': scripts/verify down --purge --name $NAME, then up"; fi
+        if [ -d "$APP" ]; then add build true "$APP"; else add build false "No build: scripts/verify up --name $NAME"; fi
+    else
+        add instance false "Not up: scripts/verify up --name $NAME"
+    fi
+
+    local holder
+    if holder=$(lock_holder); then add screen false "A UI test run holds the screen: $holder"
+    else add screen true "No UI test run in progress"; fi
+
+    # Not a failure: the owner's copy uses another bundle ID, hotkey and URL scheme.
+    local owner; owner=$(pgrep -x Aside | while read -r pid; do ps -o command= -p "$pid"; done | grep -v '/Verify/Aside.app/' | head -1)
+    jq -cn --argjson ok $healthy --argjson checks "$(printf '%s\n' "${checks[@]}" | jq -sc .)" \
+        --arg instance "$NAME" --arg owner "${owner:-not running}" \
+        '{ok:$ok,instance:$instance,checks:$checks,ownersAside:$owner}
+         + (if $ok then {} else {error:"Instance is not usable.",hint:"Fix the checks with ok:false, in order."} end)'
+    [ $healthy = true ] || exit 1
+}
+
+cmd_env() {
+    ok --arg instance "$NAME" --arg dir "$DIR" --arg derived "$DERIVED" --arg app "$APP" \
+        --arg branch "$(recorded_branch)" --arg bundle "$BUNDLE_ID" '{ok:true,instance:$instance,dir:$dir,
+        derivedData:$derived,app:$app,results:($dir+"/results"),evidence:($dir+"/evidence"),logs:($dir+"/logs"),
+        branch:$branch,bundleId:$bundle,displayName:"Aside Verify",urlScheme:"aside-verify",
+        hotkey:"Control-Option-Shift-Space"}'
+}
+
+cmd_down() {
+    local pids; pids=$(instance_pids | tr '\n' ' ')
+    local removed=()
+    [ $PURGE = 1 ] && removed=("$DERIVED" "$STATE")
+    if [ $DRY = 0 ]; then
+        [ -n "${pids// /}" ] && kill $pids 2>/dev/null
+        [ $PURGE = 1 ] && rm -rf "${removed[@]}"
+    fi
+    ok --argjson dry $([ $DRY = 1 ] && echo true || echo false) --arg pids "$pids" \
+        --argjson removed "$(printf '%s\n' "${removed[@]+"${removed[@]}"}" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
+        --arg kept "$DIR/results, $DIR/evidence, $DIR/logs" \
+        '{ok:true,dryRun:$dry,stopped:($pids | split(" ") | map(select(length > 0) | tonumber)),removed:$removed,kept:$kept}'
+}
+
+case $CMD in
+    up) cmd_up ;;
+    run) cmd_run ;;
+    doctor) cmd_doctor ;;
+    env) cmd_env ;;
+    down) cmd_down ;;
+    -h|--help|help) usage ;;
+    "") usage; exit 1 ;;
+    *) fail "Unknown command: $CMD" "Run scripts/verify --help." ;;
+esac

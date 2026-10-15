@@ -35,3 +35,6 @@ About 2–3k lines designed from this brief are easier for agents to own than in
 
 ## 9. A Stop hook runs `make check`
 The owner doesn't review code, so an agent can't end a turn with a broken build or failing tests. `scripts/stop-check.sh` skips the check when sources haven't changed since the last pass.
+
+## 10. Changes are proven with throwaway XCUITests against a separate Verify build
+An agent proves a user-visible change by writing a short UI test that drives the real app (hotkey, menu bar, typing) and running it with `scripts/verify` (`.claude/skills/verify-aside`). XCUITest ships with Xcode, so nothing is added. The Verify build has its own bundle ID, URL scheme and hotkey, so it runs while the owner's copy is open. UI tests take over the screen and need about 30 s for the current examples, so they are not in `make check` or CI; adding them is the owner's call.
