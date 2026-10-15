@@ -10,11 +10,12 @@ struct PanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("Ask anything", text: Binding(get: { composer.text }, set: composer.edit))
+            // Closures, not method references: Xcode 26.6's compiler crashes on `set: composer.edit`.
+            TextField("Ask anything", text: Binding(get: { composer.text }, set: { composer.edit($0) }))
                 .textFieldStyle(.plain)
                 .font(.title2)
                 .focused($inputFocused)
-                .onSubmit(composer.submit)
+                .onSubmit { composer.submit() }
             if !session.conversation.isEmpty {
                 Divider()
                 TranscriptView(conversation: session.conversation)

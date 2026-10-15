@@ -219,7 +219,10 @@ private final class Converter {
         guard let output = AVAudioPCMBuffer(pcmFormat: converter.outputFormat, frameCapacity: capacity) else {
             throw ListenError("Couldn't allocate an audio buffer.")
         }
-        var consumed = false
+        // The input block runs synchronously inside `convert`, on this thread, but the SDK marks it
+        // `@Sendable`; these two are never touched from anywhere else.
+        nonisolated(unsafe) let buffer = buffer
+        nonisolated(unsafe) var consumed = false
         var error: NSError?
         let status = converter.convert(to: output, error: &error) { _, inputStatus in
             if consumed {

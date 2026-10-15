@@ -101,7 +101,7 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 - A check that couldn't run (a skipped test, a run the lock refused, a permission prompt) is `INCONCLUSIVE`, never a pass.
 - If the same step fails twice, stop that item, report it `INCONCLUSIVE` with the failing step and its output, and move on.
 - When two ways of looking disagree, trust the test's exact assertion and find out why before writing a rule about the app. An XCUITest quirk is not app behavior.
-- Behavior no test reaches (below) goes into `docs/manual-tests.md` and your report names the steps for the owner.
+- Behavior no test reaches (below) goes into `docs/manual-tests.md` and your report names the steps for the owner. Only that: a step a unit or UI test already proves stays out, even when the owner would see it on the way. The owner shouldn't redo what a test proved.
 
 ## What tests can't reach
 
@@ -110,7 +110,7 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 | Another app in full screen, another Space, Mission Control, Stage Manager | No test reaches them. Manual tests 5 and 6 in `docs/manual-tests.md`. |
 | Which display the panel opens on | It follows the pointer, which a person may be moving. Manual test 1. |
 | Typing going back to the previous app after Esc | Works with a real keyboard (the owner checked), but XCUITest can't show it (see Gotchas). Manual test 3. |
-| How fast an answer streams; copying answer text; the 10-minute idle reset | Manual tests in "Text loop (M1)". The idle rule is unit-tested in `AssistantSessionTests`. |
+| How fast an answer streams; copying answer text with the mouse | "Text loop (M1)" in `docs/manual-tests.md`. The 10-minute idle reset is unit-tested in `AssistantSessionTests`. |
 | The microphone, the permission prompt, headsets, noise (M2) | Tests hear a file (`launch(heard:)`), so everything after the microphone is covered. The rest is "Voice input (M2)" in `docs/manual-tests.md`. |
 | Sound (M3) | Prove what the panel shows (speaking indicator). The sound itself is checked by ear. |
 | Light appearance on a light system, `-AppleInterfaceStyle Dark` | Not checked; this Mac runs dark. |

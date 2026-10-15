@@ -13,8 +13,8 @@ final class PanelController {
         self.composer = composer
         panel = FloatingPanel(content: PanelView(session: session, composer: composer))
         // Esc throws away what was heard; any other way of closing keeps it in the field.
-        panel.onEscape = composer.cancelTalking
-        panel.onClose = composer.stopTalking
+        panel.onEscape = { composer.cancelTalking() }
+        panel.onClose = { composer.stopTalking() }
     }
 
     func toggle() {
