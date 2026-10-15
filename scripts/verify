@@ -207,7 +207,7 @@ cmd_env() {
         --arg branch "$(recorded_branch)" --arg bundle "$BUNDLE_ID" '{ok:true,instance:$instance,dir:$dir,
         derivedData:$derived,app:$app,results:($dir+"/results"),evidence:($dir+"/evidence"),logs:($dir+"/logs"),
         branch:$branch,bundleId:$bundle,displayName:"Aside Verify",urlScheme:"aside-verify",
-        hotkey:"Control-Option-Shift-Space"}'
+        hotkey:"Control-Option-Command-Space",talkHotkey:"Control-Option-Shift-Command-Space"}'
 }
 
 cmd_down() {

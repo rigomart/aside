@@ -24,3 +24,16 @@ Checks no automated test can reach. Run the section for the milestone being hand
 6. Put Safari in full screen, open the panel and ask something long: the panel grows downward over Safari, then scrolls.
 7. Press Command-N: the panel empties. Ask "what did I just ask you?": it doesn't know.
 8. After an answer, leave the panel closed for over 10 minutes, then reopen: the panel is empty.
+
+## Voice input (M2)
+
+1. In any app, press Control-Option-Shift-Space. The first time, macOS asks to let Aside use the microphone: allow it. If the panel closed when the prompt appeared, press Control-Option-Shift-Space again. The panel opens with a red "Listening…" line under the field, and the app you were in stays active.
+2. Say "What's the weather in Lima today?". Your words appear in the field as you speak, and the last few may change as it catches up. Press Control-Option-Shift-Space: the question is sent and answered.
+3. Talk again and press Return instead: it sends just the same.
+4. Talk, then press Esc: the panel closes. Reopen it with Control-Option-Space: the field is empty, and nothing was sent.
+5. Talk, then type a word: the "Listening…" line goes away, the menu bar's orange microphone dot goes out, and your typing is added to what was heard.
+6. Talk, then press Control-Option-Space: the panel closes and the microphone dot goes out. Reopen: what you said is in the field, unsent.
+7. Press Control-Option-Shift-Space and say nothing, then press it again: "Didn't hear anything." shows and nothing is sent.
+8. With AirPods or another headset connected, talk: it hears you through the headset.
+9. Talk with music or other people in the room: does it pick up your question well enough? Note anything it gets wrong.
+10. In System Settings › Privacy & Security › Microphone, turn Aside off (reopen Aside if macOS asks you to quit it), then talk: the panel says Aside can't use the microphone and where to allow it. Turn it back on.

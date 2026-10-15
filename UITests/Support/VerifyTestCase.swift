@@ -4,13 +4,16 @@ import XCTest
 /// Base class for Aside's UI tests. Launches the Verify build (`com.rigomart.aside.verify`, "Aside Verify")
 /// with its own hotkey, and attaches the evidence that `scripts/verify run` exports.
 class VerifyTestCase: XCTestCase {
-    /// The Verify build's hotkey: Control-Option-Shift-Space. The owner's copy holds Control-Option-Space,
-    /// and Carbon hotkeys are not exclusive, so sharing it would open both panels on one press.
-    static let hotkey: (key: String, modifiers: XCUIElement.KeyModifierFlags) = (" ", [.control, .option, .shift])
+    /// The Verify build's hotkeys: Control-Option-Command-Space opens and closes the panel, and
+    /// Control-Option-Shift-Command-Space talks. The owner's copy holds the same keys without Command,
+    /// and Carbon hotkeys are not exclusive, so sharing them would open both panels on one press.
+    static let hotkey: (key: String, modifiers: XCUIElement.KeyModifierFlags) = (" ", [.control, .option, .command])
+    static let talkHotkey: (key: String, modifiers: XCUIElement.KeyModifierFlags) = (" ", [.control, .option, .shift, .command])
 
-    /// The same shortcut as KeyboardShortcuts stores it. A launch argument puts it in the argument domain,
-    /// which wins over the stored default; the outer quotes keep it a string rather than a plist.
-    private static let hotkeyDefault = #""{\"carbonModifiers\":6656,\"carbonKeyCode\":49}""#
+    /// The same shortcuts as KeyboardShortcuts stores them. A launch argument puts them in the argument domain,
+    /// which wins over the stored default; the outer quotes keep each a string rather than a plist.
+    private static let hotkeyDefault = #""{\"carbonModifiers\":6400,\"carbonKeyCode\":49}""#
+    private static let talkHotkeyDefault = #""{\"carbonModifiers\":6912,\"carbonKeyCode\":49}""#
 
     /// Text unique to this test, for anything the test types or creates.
     let stamp = String(UUID().uuidString.prefix(6))
@@ -31,13 +34,23 @@ class VerifyTestCase: XCTestCase {
     /// `UITests/Support/fake-claude`, which answers "Answer <n>: <question>". Pass it to `launch(claude:)`.
     static let fakeClaude = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "fake-claude").path
 
+    /// `UITests/Support/spoken-question.m4a`: `say` reading "What is the tallest mountain in Peru".
+    /// Pass it to `launch(heard:)` to stand in for the microphone.
+    static let spokenQuestion = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "spoken-question.m4a").path
+
+    /// What Aside Verify writes in the field after hearing `spokenQuestion`.
+    static let spokenQuestionText = "What is the tallest mountain in Peru?"
+
     /// Launches the Verify build with the verification hotkey and its own data folder under
     /// `.verify/<name>/data/<stamp>/`. `claude` sets the claude path setting (`fakeClaude`, or a missing path);
-    /// nil finds the owner's real claude. Pass launch arguments to arrange other preconditions.
-    @MainActor func launch(claude: String? = nil, _ arguments: [String] = []) -> XCUIApplication {
+    /// nil finds the owner's real claude. `heard` is an audio file the talk hotkey hears instead of the
+    /// microphone (`spokenQuestion`); nil uses the microphone. Pass launch arguments to arrange other preconditions.
+    @MainActor func launch(claude: String? = nil, heard: String? = nil, _ arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-ApplePersistenceIgnoreState", "YES", "-KeyboardShortcuts_togglePanel", Self.hotkeyDefault]
+        app.launchArguments = ["-ApplePersistenceIgnoreState", "YES",
+                               "-KeyboardShortcuts_togglePanel", Self.hotkeyDefault, "-KeyboardShortcuts_talk", Self.talkHotkeyDefault]
             + (claude.map { ["-claudePath", $0] } ?? [])
+            + (heard.map { ["-audioInputFile", $0] } ?? [])
             + arguments
         app.launchEnvironment["ASIDE_DATA_DIRECTORY"] = Self.instanceDirectory.appending(path: "data/\(stamp)").path
         app.launch()

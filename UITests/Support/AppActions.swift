@@ -21,6 +21,13 @@ extension XCUIApplication {
 
     /// The button that starts a new conversation (Command-N). Shown once there is a transcript.
     var newConversationButton: XCUIElement { panel.buttons["New conversation ⌘N"] }
+
+    /// While talking, the line under the field, as its value: "Starting the microphone…",
+    /// "Listening… ⌃⌥⇧⌘Space sends, Esc cancels", "Sending…".
+    var voiceStatus: XCUIElement { panel.descendants(matching: .any).matching(identifier: "voiceStatus").firstMatch }
+
+    /// Why listening stopped or failed, as its value, such as "Didn't hear anything.", in place of the claude line.
+    var voiceMessage: XCUIElement { panel.descendants(matching: .any).matching(identifier: "voiceMessage").firstMatch }
 }
 
 extension VerifyTestCase {
@@ -46,6 +53,14 @@ extension VerifyTestCase {
     /// which it never does because the hotkey takes it, so this step takes about 10 s.
     @MainActor func pressHotkey(over frontApp: XCUIApplication, in app: XCUIApplication) -> XCUIElement {
         frontApp.typeKey(Self.hotkey.key, modifierFlags: Self.hotkey.modifiers)
+        return waitForPanel(in: app)
+    }
+
+    /// Presses the verification talk hotkey with `frontApp` in front and returns the panel once its field
+    /// has focus. Like `pressHotkey`, this takes about 10 s. To press it again while the panel is open, use
+    /// `app.askField.typeKey(Self.talkHotkey.key, modifierFlags: Self.talkHotkey.modifiers)`.
+    @MainActor func pressTalkHotkey(over frontApp: XCUIApplication, in app: XCUIApplication) -> XCUIElement {
+        frontApp.typeKey(Self.talkHotkey.key, modifierFlags: Self.talkHotkey.modifiers)
         return waitForPanel(in: app)
     }
 

@@ -20,7 +20,7 @@ Every command prints one JSON object. `scripts/verify --help` lists them all.
 
 ## Isolation
 
-- Tests drive **Aside Verify**: the `Verify` build configuration in `project.yml`, bundle ID `com.rigomart.aside.verify`, URL scheme `aside-verify://`, hotkey **Control-Option-Shift-Space**. The owner's own Aside (`com.rigomart.aside`, `aside://`, Control-Option-Space) is usually running; tests never touch it, and `down` never stops it. Don't use `aside://`, `make run` or `make stop` for verification.
+- Tests drive **Aside Verify**: the `Verify` build configuration in `project.yml`, bundle ID `com.rigomart.aside.verify`, URL scheme `aside-verify://`, hotkeys **Control-Option-Command-Space** (open) and **Control-Option-Shift-Command-Space** (talk). The owner's own Aside (`com.rigomart.aside`, `aside://`, Control-Option-Space and Control-Option-Shift-Space) is usually running; tests never touch it, and `down` never stops it. Don't use `aside://`, `make run` or `make stop` for verification.
 - An instance is a named build under `.verify/<name>/` (`DerivedData/`, `results/`, `evidence/`, `logs/`, `instance.json`). Start your own per task with `--name <short-task-name>` and purge it when you're done; don't run in an instance someone else started (`default` included). Instances build in parallel.
 - Each instance's build registers another Aside Verify with LaunchServices, which is one more reason to purge when done. The owner's `aside://` goes to their own copy only.
 - **One run per Mac.** UI tests take the real pointer, keyboard and focus. `run` holds a lock (`$TMPDIR/aside-verify-ui.lock`) across every checkout and refuses while another run holds it. Wait and retry; never remove someone else's lock.
@@ -28,9 +28,9 @@ Every command prints one JSON object. `scripts/verify --help` lists them all.
 
 ## Users and test data
 
-Aside has no accounts. Its settings are the hotkey and the claude path (`claudePath`), in the `com.rigomart.aside.verify` defaults domain; `launch()` sets both with launch arguments every time. Its only files are claude's workspace, and `launch()` points `ASIDE_DATA_DIRECTORY` at `.verify/<name>/data/<stamp>/`, so tests never share the owner's data or each other's. Each `launch()` starts a fresh process with `-ApplePersistenceIgnoreState YES`. Use `stamp` (unique per test) in anything you type, so a value you assert can only have come from your test.
+Aside has no accounts. Its settings are the two hotkeys, the claude path (`claudePath`) and the audio file heard instead of the microphone (`audioInputFile`), in the `com.rigomart.aside.verify` defaults domain; `launch()` sets them with launch arguments every time. Its only files are claude's workspace, and `launch()` points `ASIDE_DATA_DIRECTORY` at `.verify/<name>/data/<stamp>/`, so tests never share the owner's data or each other's. Each `launch()` starts a fresh process with `-ApplePersistenceIgnoreState YES`. Use `stamp` (unique per test) in anything you type, so a value you assert can only have come from your test.
 
-**Which claude.** `launch(claude: Self.fakeClaude)` points Aside at `UITests/Support/fake-claude`, which answers "Answer <n>: <question>" (n counts from 1 per process) and exits with status 3 and "something broke" on a question containing "boom". Use it to assert exact text, follow-ups, new conversations and failures. `launch(claude: "/nonexistent/claude")` arranges a missing claude. `launch()` uses the owner's real claude: use it when the change is about what real answers look like or about the claude process itself. Real answers take 2–30 s and cost a little subscription usage; ask for something checkable (`"Reply with only the word \(stamp), nothing more."`) and assert with `CONTAINS`, because wording varies by design.
+**Which claude.** `launch(claude: Self.fakeClaude)` points Aside at `UITests/Support/fake-claude`, which answers "Answer <n>: <question>" (n counts from 1 per process) and exits with status 3 and "something broke" on a question containing "boom". Use it to assert exact text, follow-ups, new conversations and failures. `launch(claude: "/nonexistent/claude")` arranges a missing claude. **What it hears.** `launch(claude: Self.fakeClaude, heard: Self.spokenQuestion)` makes the talk hotkey hear `UITests/Support/spoken-question.m4a` (`say` reading "What is the tallest mountain in Peru") instead of the microphone; Aside writes `Self.spokenQuestionText` in the field. Make another clip with `say -o <file>.m4a --file-format=m4af --data-format=aac "<words>"` (`"[[slnc 1500]]"` is silence). Without `heard:` the talk hotkey uses the microphone, and macOS asks the person at the Mac to allow it, which blocks the run: don't. `launch()` uses the owner's real claude: use it when the change is about what real answers look like or about the claude process itself. Real answers take 2–30 s and cost a little subscription usage; ask for something checkable (`"Reply with only the word \(stamp), nothing more."`) and assert with `CONTAINS`, because wording varies by design.
 
 ## Prove a change
 
@@ -73,6 +73,8 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 | Ask, and read the transcript | `ask("What is \(stamp)?", in: app)` (types it and Return); `app.questions`, `app.answers`, `app.errors` (queries, oldest first: `.element(boundBy: 0)`); `app.activity` ("Thinking…", "Searching the web…"); `app.newConversationButton` |
 | Wait for exact text | `waitForValue("Answer 1: What is \(stamp)?", of: app.answers.element(boundBy: 0))` |
 | Open with the hotkey, another app in front | `let calculator = launchFrontApp()`, then `pressHotkey(over: calculator, in: app)` |
+| Talk | `pressTalkHotkey(over: calculator, in: app)` opens the panel listening; in an open panel, `app.askField.typeKey(Self.talkHotkey.key, modifierFlags: Self.talkHotkey.modifiers)` starts listening or sends. Needs `launch(heard:)` |
+| Listening status and voice errors | `app.voiceStatus` ("Starting the microphone…", "Listening… ⌃⌥⇧⌘Space sends, Esc cancels", "Sending…") and `app.voiceMessage` ("Didn't hear anything.", failures); both are static texts: read `.value` |
 | Open from the menu bar | `openPanelFromMenuBar(app)`: status item `Aside`, menu item `Show Aside` |
 | Open when how it opens is not the change | `openPanelWithURL(app)` (`aside-verify://show`) |
 | Any URL: `show`, `hide`, `toggle` | `openURL("toggle")`, then `waitForPanel(in: app)` or `panel.waitForNonExistence(timeout: 5)` |
@@ -109,14 +111,15 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 | Which display the panel opens on | It follows the pointer, which a person may be moving. Manual test 1. |
 | Typing going back to the previous app after Esc | Works with a real keyboard (the owner checked), but XCUITest can't show it (see Gotchas). Manual test 3. |
 | How fast an answer streams; copying answer text; the 10-minute idle reset | Manual tests in "Text loop (M1)". The idle rule is unit-tested in `AssistantSessionTests`. |
-| Sound, speech, the microphone (M2–M3) | Prove what the panel shows (listening or speaking indicator, transcript). The sound itself is checked by ear. |
+| The microphone, the permission prompt, headsets, noise (M2) | Tests hear a file (`launch(heard:)`), so everything after the microphone is covered. The rest is "Voice input (M2)" in `docs/manual-tests.md`. |
+| Sound (M3) | Prove what the panel shows (speaking indicator). The sound itself is checked by ear. |
 | Light appearance on a light system, `-AppleInterfaceStyle Dark` | Not checked; this Mac runs dark. |
 
 ## Look around
 
 To see the Verify build by hand: `scripts/verify up`, then
-`open -n "$(scripts/verify env | jq -r .app)" --args -KeyboardShortcuts_togglePanel '"{\"carbonModifiers\":6656,\"carbonKeyCode\":49}"'`
-and press Control-Option-Shift-Space. Quit it from its menu bar icon (the second speech bubble) or with `scripts/verify down`. Looking is not proof.
+`open -n "$(scripts/verify env | jq -r .app)" --args -KeyboardShortcuts_togglePanel '"{\"carbonModifiers\":6400,\"carbonKeyCode\":49}"' -KeyboardShortcuts_talk '"{\"carbonModifiers\":6912,\"carbonKeyCode\":49}"'`
+and press Control-Option-Command-Space. Quit it from its menu bar icon (the second speech bubble) or with `scripts/verify down`. Looking is not proof.
 
 ## Doctor and cleanup
 

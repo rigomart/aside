@@ -7,7 +7,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dataDirectory: AppDelegate.dataDirectory,
         claudePath: UserDefaults.standard.string(forKey: "claudePath")
     )
-    private lazy var panel = PanelController(session: session)
+    private lazy var composer = Composer(session: session) {
+        SpeechListener(source: AppDelegate.audioSource)
+    }
+    private lazy var panel = PanelController(session: session, composer: composer)
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -15,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = makeEditMenu()
         KeyboardShortcuts.onKeyUp(for: .togglePanel) { [weak self] in
             self?.panel.toggle()
+        }
+        KeyboardShortcuts.onKeyUp(for: .talk) { [weak self] in
+            self?.panel.talk()
         }
         Log.app.info("Launched")
     }
@@ -39,6 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
         return URL.applicationSupportDirectory.appending(path: "Aside", directoryHint: .isDirectory)
+    }
+
+    /// The microphone, or the `audioInputFile` user default: an audio file heard as if spoken.
+    /// UI tests set it with a launch argument, since they can't talk.
+    private static var audioSource: SpeechListener.Source {
+        UserDefaults.standard.string(forKey: "audioInputFile").map { .file(URL(fileURLWithPath: $0)) } ?? .microphone
     }
 
     private func makeStatusItem() -> NSStatusItem {
