@@ -8,3 +8,6 @@ build/
 .verify/
 .DS_Store
 xcuserdata/
+# Throwaway UI tests from verify-aside; the folder stays for the generated project.
+UITests/Scratch/*
+!UITests/Scratch/.gitkeep

@@ -32,4 +32,6 @@ The app runs the Claude Code CLI as a child process. There is no API key, and An
 
 - XcodeGen generates the project from `project.yml`.
 - Builds are signed with the owner's Apple Development certificate (team `WHZ7FDCNMT`). Privacy grants follow the signature, so a stable identity means microphone and speech permissions survive rebuilds. There is no hardened runtime, no sandbox (a sandboxed app can't spawn `claude`), and no notarization.
-- The bundle ID is `com.rigomart.aside`. Verification builds will get their own bundle ID (`.verify`) so they never collide with the owner's running copy.
+- The bundle ID is `com.rigomart.aside`.
+- The `Verify` build configuration builds Aside Verify for UI tests: bundle ID `com.rigomart.aside.verify`, URL scheme `aside-verify://`. It runs beside the owner's copy without sharing defaults, privacy grants or `aside://`. UI tests give it the hotkey Control-Option-Shift-Space through a launch argument, because Carbon hotkeys aren't exclusive and a shared one would open both panels.
+- `AsideUITests` (sources in `UITests/`) has its own scheme with the `Verify` configuration, so `make check` never runs it. `scripts/verify` builds and runs it into `.verify/<instance>/`.

@@ -14,6 +14,7 @@ The owner makes product decisions and does not read or review code. You own the 
 | `make logs` | Stream the app's logs (`os.Logger`, subsystem `com.rigomart.aside`). |
 | `make generate` | Regenerate `Aside.xcodeproj` from `project.yml`. `build` does this. |
 | `open aside://show` | Open the panel without the hotkey (`hide`, `toggle` also work). |
+| `scripts/verify` | Build and run UI tests against Aside Verify, a separate copy of the app. See `verify-aside`. |
 
 The Makefile sets `DEVELOPER_DIR` to `/Applications/Xcode.app`; the system `xcode-select` points at the Command Line Tools. Call `xcodebuild` through `make` or with that variable set.
 
@@ -21,6 +22,7 @@ The Makefile sets `DEVELOPER_DIR` to `/Applications/Xcode.app`; the system `xcod
 
 - `App/Sources/`: the app target. AppKit and SwiftUI glue: panel, hotkey, menu bar item, URL handling.
 - `Packages/AsideCore/`: logic that needs no AppKit, with Swift Testing tests. The app depends on it.
+- `UITests/`: XCUITest support, committed example tests, and `Scratch/` for throwaway ones (gitignored).
 - `project.yml`: XcodeGen spec. `Aside.xcodeproj` and `App/Info.plist` are generated and gitignored.
 - `docs/`: product, architecture, decisions, manual tests. Read the ones your task touches.
 - `scripts/stop-check.sh`: Stop hook that runs `make check` when sources changed.
@@ -38,6 +40,6 @@ The Makefile sets `DEVELOPER_DIR` to `/Applications/Xcode.app`; the system `xcod
 ## Done means
 
 1. `make check` passes.
-2. The change is proven in the running app. Once `.claude/skills/verify-aside` exists, follow it. Until then, run the app, drive the change, and say exactly what you saw and what you couldn't check.
+2. A user-visible change is proven in the real app per `.claude/skills/verify-aside`; `make check` and unit tests do not substitute for it.
 3. Behavior no test can reach (Spaces, full-screen apps, focus, sound) has steps in `docs/manual-tests.md`, and your report tells the owner which ones to run.
 4. Docs that your change made wrong are updated.
