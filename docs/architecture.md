@@ -6,10 +6,10 @@
  Menu bar item ───────────────┘          │
                        Composer (the field) ──▶ AssistantSession ─▶ Conversation (what the panel shows)
                               │                        │
-                       SpeechListener            ClaudeProcess        SpeechOutput (M3)
+                       SpeechListener            ClaudeProcess, Narrator ─▶ SpeechSpeaker
 ```
 
-Built so far: the panel, hotkeys, menu bar item, URL scheme, the text loop (`AssistantSession`, `ClaudeProcess`, `Conversation`, `ClaudeEvent`, `Workspace`, `ClaudeLocator`) and voice input (`Composer`, `SpeechListener`), all but the panel in `AsideCore`. Speech output is M3.
+Built so far: the panel, hotkeys, menu bar item, URL scheme, the text loop (`AssistantSession`, `ClaudeProcess`, `Conversation`, `ClaudeEvent`, `Workspace`, `ClaudeLocator`) voice input (`Composer`, `SpeechListener`) and voice output (`Narrator`, `SpokenText`, `SpeechSpeaker`), all but the panel in `AsideCore`.
 
 ## Conversation
 
@@ -26,6 +26,16 @@ Answers render inline Markdown (bold, italics, code, links). The transcript grow
 `SpeechListener` runs `SpeechAnalyzer` with a `SpeechTranscriber` for the Mac's language, on device (decision 17). Each press: microphone permission (`AVAudioApplication`), the speech model (downloaded on first use; the panel says "Downloading the speech model…"), then an `AVAudioEngine` input tap converted to the analyzer's format. Words arrive as `heard` events about once a second with `fastResults`; finishing finalizes the last words before the text is sent. It takes about 100 ms from the press to listening. Failures (microphone denied or missing, unsupported language, recognition errors) show in red under the field, and so does a press that heard nothing.
 
 The `audioInputFile` user default replaces the microphone with a file, played in real time and then silence. UI tests set it (decision 18); `Info.plist` carries `NSMicrophoneUsageDescription`, without which macOS would kill Aside on first use of the microphone.
+
+## Voice output
+
+`Composer` sends a question with `aloud: true` when it was sent while listening (decision 19). `AssistantSession.send` then starts its `Narrator` on that exchange, and after every change to the conversation hands it the newest exchange. Sending without `aloud` stops whatever was being read.
+
+`Narrator` turns the answer so far into spoken text (`SpokenText.prose`) and hands each new complete sentence to its `Speaker`. The last sentence waits for more text, unless the answer has ended or paused for a tool ("Let me check." is said before the search runs). It counts the characters already handed over, so each sentence is said once as the answer grows. `isReading` lasts from the question until the answer has ended and the speaker has said every sentence, or until `stop()`; the panel shows "Reading aloud. Esc stops." under the field meanwhile.
+
+`SpokenText.prose` works line by line: fenced code blocks, tables, rules and images are left out; heading, list and quote marks, emphasis and code backticks are dropped; links read as their text and bare web addresses as their site ("apple.com"). A complete line without closing punctuation gets a period, so list items get a pause. `NLTokenizer` splits sentences, so "Dr." and "$3.50" don't end one.
+
+`SpeechSpeaker` queues each sentence on one `AVSpeechSynthesizer`, so sentences run together without gaps, in the voice from decision 20. `stop()` cuts off mid-word and drops the queue. Esc (`PanelController`), the talk hotkey (`Composer.startTalking`, so the microphone doesn't hear the answer), the next question and New conversation call it.
 
 ## Panel
 

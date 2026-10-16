@@ -5,11 +5,13 @@ import Testing
 @MainActor
 struct AssistantSessionTests {
     let fake = FakeClaude()
+    let speaker = FakeSpeaker()
 
     func session(claude: String?, now: @escaping () -> Date = Date.init) -> AssistantSession {
         AssistantSession(
             dataDirectory: fake.directory.appending(path: "data"),
             claudePath: claude ?? "/missing/claude",
+            speaker: speaker,
             idleLimit: 600,
             now: now
         )
@@ -93,6 +95,40 @@ struct AssistantSessionTests {
         session.send("later")
         await settle(session)
         #expect(answers(session) == ["Answer 1: later"])
+    }
+
+    @Test func onlyAnswersAskedAloudAreRead() async throws {
+        let session = session(claude: try fake.write())
+        session.send("hello", aloud: true)
+        #expect(session.isReadingAloud)
+        await settle(session)
+        #expect(speaker.sentences == ["Answer 1: hello"])
+        speaker.finishSpeaking()
+        #expect(!session.isReadingAloud)
+
+        session.send("typed")
+        await settle(session)
+        #expect(speaker.sentences == ["Answer 1: hello"])
+        #expect(!session.isReadingAloud)
+    }
+
+    @Test func theNextQuestionStopsReading() async throws {
+        let session = session(claude: try fake.write())
+        session.send("hello", aloud: true)
+        await settle(session)
+        #expect(session.isReadingAloud, "Still saying the answer")
+        session.send("typed")
+        #expect(!session.isReadingAloud)
+        #expect(speaker.stops == 1)
+    }
+
+    @Test func aNewConversationStopsReading() async throws {
+        let session = session(claude: try fake.write())
+        session.send("hello", aloud: true)
+        await settle(session)
+        session.startNewConversation()
+        #expect(!session.isReadingAloud)
+        #expect(speaker.stops == 1)
     }
 
     @Test func writesTheWorkspaceInstructions() async throws {

@@ -32,3 +32,16 @@ UI tests prove the talk hotkey, words appearing as they're heard, sending with t
 4. With AirPods or another headset connected, talk: it hears you through the headset.
 5. Talk with music or other people in the room: note anything it gets wrong.
 6. In System Settings › Privacy & Security › Microphone, turn Aside off (reopen Aside if macOS asks you to quit it), then talk: the panel says Aside can't use the microphone and where to allow it. Turn it back on.
+
+## Voice output (M3)
+
+UI tests prove that a spoken question's answer is read and a typed one's isn't, that the "Reading aloud" line goes away once the answer has been said, and that Esc and the talk hotkey stop reading while closing with the hotkey doesn't. Unit tests prove which text is said, sentence by sentence. These steps cover the sound itself.
+
+1. Press Control-Option-Shift-Space and ask out loud for something with a few sentences, such as "Give me three tips for sleeping better". Send it with Control-Option-Shift-Space: Aside starts speaking soon after the first sentence appears, before the answer is finished, and reads it to the end with no long gaps between sentences.
+2. Listen for symbols: it never says "asterisk", "hash", "backtick", "dash" or a web address letter by letter. Ask out loud "Show me the Terminal command to list files, in a code block, then say one more sentence": it skips the command and reads the sentence after it.
+3. Type a question and press Return: the answer appears and nothing is read.
+4. Ask out loud for something long, then press Esc mid-sentence: speech stops at once.
+5. Ask out loud for something long, close the panel with Control-Option-Space and go back to your app: it keeps reading. Press Control-Option-Shift-Space while it reads: it stops at once and listens, and the words in the field are yours, not the answer's.
+6. With AirPods connected, ask out loud: the answer plays in the AirPods.
+7. Note whether the voice sounds good enough. If not, download a Premium voice for English (US) in System Settings › Accessibility › Spoken Content › System Voice › Manage Voices, quit and reopen Aside, and ask again.
+

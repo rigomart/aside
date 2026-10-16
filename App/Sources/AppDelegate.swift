@@ -5,7 +5,8 @@ import KeyboardShortcuts
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let session = AssistantSession(
         dataDirectory: AppDelegate.dataDirectory,
-        claudePath: UserDefaults.standard.string(forKey: "claudePath")
+        claudePath: UserDefaults.standard.string(forKey: "claudePath"),
+        speaker: SpeechSpeaker()
     )
     private lazy var composer = Composer(session: session) {
         SpeechListener(source: AppDelegate.audioSource)

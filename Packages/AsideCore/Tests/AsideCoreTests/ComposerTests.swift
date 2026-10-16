@@ -22,9 +22,12 @@ final class FakeListener: Listener {
 struct ComposerTests {
     let fake = FakeClaude()
     let listener = FakeListener()
+    let speaker = FakeSpeaker()
 
     func composer() throws -> (Composer, AssistantSession) {
-        let session = AssistantSession(dataDirectory: fake.directory.appending(path: "data"), claudePath: try fake.write())
+        let session = AssistantSession(
+            dataDirectory: fake.directory.appending(path: "data"), claudePath: try fake.write(), speaker: speaker
+        )
         return (Composer(session: session, listen: { [listener] in listener }), session)
     }
 
@@ -145,6 +148,42 @@ struct ComposerTests {
         #expect(composer.voiceMessage == "Couldn't listen: broken")
         #expect(composer.text == "Some words")
         #expect(session.conversation.isEmpty)
+    }
+
+    @Test func theAnswerToASpokenQuestionIsReadAloud() async throws {
+        let (composer, session) = try composer()
+        composer.toggleTalking()
+        listener.listen()
+        listener.hear("What is the time?")
+        await eventually { composer.text == "What is the time?" }
+        composer.toggleTalking()
+        await eventually { session.conversation.exchanges.first?.isFinished == true }
+        #expect(speaker.sentences == ["Answer 1: What is the time?"])
+        #expect(session.isReadingAloud)
+    }
+
+    @Test func theAnswerToATypedQuestionIsNot() async throws {
+        let (composer, session) = try composer()
+        composer.edit("What is the time?")
+        composer.submit()
+        await eventually { session.conversation.exchanges.first?.isFinished == true }
+        #expect(speaker.sentences.isEmpty)
+        #expect(!session.isReadingAloud)
+    }
+
+    @Test func talkingStopsReading() async throws {
+        let (composer, session) = try composer()
+        composer.toggleTalking()
+        listener.listen()
+        listener.hear("Hello")
+        await eventually { composer.text == "Hello" }
+        composer.toggleTalking()
+        await eventually { session.conversation.exchanges.first?.isFinished == true }
+        #expect(session.isReadingAloud)
+
+        composer.toggleTalking()
+        #expect(!session.isReadingAloud)
+        #expect(composer.voice == .starting("Starting the microphone…"))
     }
 
     @Test func pressingWhileStartingStops() async throws {

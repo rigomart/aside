@@ -20,8 +20,11 @@ public struct Conversation: Equatable, Sendable {
     /// Whether the last question is still being answered.
     public var isResponding: Bool { exchanges.last.map { !$0.isFinished } ?? false }
 
-    public mutating func ask(_ question: String) {
+    /// Adds `question`, waiting for its answer, and returns its exchange's ID.
+    @discardableResult
+    public mutating func ask(_ question: String) -> Exchange.ID {
         exchanges.append(Exchange(id: exchanges.count, question: question))
+        return exchanges.count - 1
     }
 
     public mutating func apply(_ event: ClaudeEvent) {
