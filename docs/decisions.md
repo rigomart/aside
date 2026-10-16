@@ -53,3 +53,12 @@ Quick lookups need the web, and nothing else is needed until calendar and notes 
 
 ## 15. If claude exits, the next question starts a new conversation
 The panel says so, and the next question starts a fresh process. Resuming with `--resume <session id>` would keep the context but adds code for something that hasn't happened outside tests. Revisit if the owner sees "claude stopped" in daily use.
+
+## 16. Talking is a toggle on its own hotkey: Control-Option-Shift-Space
+Chosen by the owner on 2026-10-15. The talk hotkey opens the panel listening (or starts listening in the open panel, after whatever was typed); pressing it again, or Return, sends what was heard. Esc throws away what was heard and closes the panel. Typing stops listening and keeps the text to edit. Closing the panel any other way stops listening and keeps the text, unsent. The owner preferred a toggle to stopping on silence: it never sends half a thought when they pause, and noise can't keep it listening. Revisit, by adding stop-on-silence on top, if pressing to send feels like a chore.
+
+## 17. On-device `SpeechAnalyzer` in the Mac's language
+`SpeechTranscriber` (macOS 26) runs on the Mac with no extra package and no speech recognition permission, only the microphone's. It listens in the language `Locale.current` maps to (this Mac: `en_PE`, heard as `en_US`). With `fastResults` the words update about once a second; without it, every four. Its model downloads on first use, and the panel says so while it does. `DictationTranscriber` is the alternative if punctuation or accuracy disappoint.
+
+## 18. Aside Verify's hotkeys add Command; UI tests hear an audio file
+The owner's talk hotkey took Control-Option-Shift-Space, which Aside Verify used, so Verify now uses Control-Option-Command-Space to open and Control-Option-Shift-Command-Space to talk. UI tests can't speak, so the `audioInputFile` setting (a launch argument) makes the talk hotkey hear a file instead of the microphone, played in real time and followed by silence. Everything after the microphone runs as it does for the owner. The microphone itself is a manual test.

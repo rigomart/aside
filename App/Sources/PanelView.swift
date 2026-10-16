@@ -1,26 +1,27 @@
 import AppKit
 import AsideCore
+import KeyboardShortcuts
 import SwiftUI
 
 struct PanelView: View {
     let session: AssistantSession
-    @State private var query = ""
+    let composer: Composer
     @FocusState private var inputFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("Ask anything", text: $query)
+            // Closures, not method references: Xcode 26.6's compiler crashes on `set: composer.edit`.
+            TextField("Ask anything", text: Binding(get: { composer.text }, set: { composer.edit($0) }))
                 .textFieldStyle(.plain)
                 .font(.title2)
                 .focused($inputFocused)
-                .onSubmit(send)
+                .onSubmit { composer.submit() }
             if !session.conversation.isEmpty {
                 Divider()
                 TranscriptView(conversation: session.conversation)
             }
             HStack {
-                Text(claudeStatus)
-                    .accessibilityIdentifier("claudeStatus")
+                status
                 Spacer()
                 if !session.conversation.isEmpty {
                     Button("New conversation ⌘N", action: session.startNewConversation)
@@ -39,12 +40,39 @@ struct PanelView: View {
         }
     }
 
-    /// Return sends. While an answer is still coming, Return does nothing and the text stays.
-    private func send() {
-        let question = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !question.isEmpty, !session.conversation.isResponding else { return }
-        session.send(question)
-        query = ""
+    /// While talking, what the microphone is doing; otherwise why listening stopped, or where claude is.
+    private var status: some View {
+        voiceStatus.accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder private var voiceStatus: some View {
+        switch composer.voice {
+        case .off:
+            if let message = composer.voiceMessage {
+                Label(message, systemImage: "mic.slash")
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("voiceMessage")
+            } else {
+                Text(claudeStatus)
+                    .accessibilityIdentifier("claudeStatus")
+            }
+        case .starting(let reason):
+            Label(reason, systemImage: "mic")
+                .accessibilityIdentifier("voiceStatus")
+        case .listening:
+            Label("Listening… \(talkShortcut) sends, Esc cancels", systemImage: "waveform")
+                .symbolEffect(.variableColor.iterative)
+                .foregroundStyle(.red)
+                .accessibilityIdentifier("voiceStatus")
+        case .finishing:
+            Label("Sending…", systemImage: "waveform")
+                .accessibilityIdentifier("voiceStatus")
+        }
+    }
+
+    private var talkShortcut: String {
+        KeyboardShortcuts.getShortcut(for: .talk)?.description ?? "The talk shortcut"
     }
 
     private var claudeStatus: String {

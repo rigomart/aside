@@ -6,14 +6,25 @@ import SwiftUI
 final class PanelController {
     private let panel: FloatingPanel
     private let session: AssistantSession
+    private let composer: Composer
 
-    init(session: AssistantSession) {
+    init(session: AssistantSession, composer: Composer) {
         self.session = session
-        panel = FloatingPanel(content: PanelView(session: session))
+        self.composer = composer
+        panel = FloatingPanel(content: PanelView(session: session, composer: composer))
+        // Esc throws away what was heard; any other way of closing keeps it in the field.
+        panel.onEscape = { composer.cancelTalking() }
+        panel.onClose = { composer.stopTalking() }
     }
 
     func toggle() {
         panel.isVisible ? hide() : show()
+    }
+
+    /// The talk hotkey: opens the panel listening, or sends what was heard.
+    func talk() {
+        if !panel.isVisible { show() }
+        composer.toggleTalking()
     }
 
     /// Shows the panel near the top of the screen the pointer is on, without activating the app,
@@ -38,6 +49,10 @@ final class PanelController {
 /// A borderless, non-activating panel that floats over other apps, including full-screen ones,
 /// and on every Space. Esc or a click outside closes it.
 private final class FloatingPanel: NSPanel {
+    var onEscape: () -> Void = {}
+    /// Called on every close: each one resigns key first.
+    var onClose: () -> Void = {}
+
     init(content: some View) {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isFloatingPanel = true
@@ -60,12 +75,14 @@ private final class FloatingPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 
     override func cancelOperation(_ sender: Any?) {
+        onEscape()
         orderOut(nil)
         Log.panel.info("Hidden: Esc")
     }
 
     override func resignKey() {
         super.resignKey()
+        onClose()
         orderOut(nil)
         Log.panel.info("Hidden: lost focus")
     }
