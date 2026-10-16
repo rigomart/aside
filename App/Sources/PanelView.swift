@@ -40,7 +40,8 @@ struct PanelView: View {
         }
     }
 
-    /// While talking, what the microphone is doing; otherwise why listening stopped, or where claude is.
+    /// While talking, what the microphone is doing; otherwise why listening stopped, that an answer is
+    /// being read aloud, or where claude is.
     private var status: some View {
         voiceStatus.accessibilityElement(children: .combine)
     }
@@ -53,6 +54,10 @@ struct PanelView: View {
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("voiceMessage")
+            } else if session.isReadingAloud {
+                Label("Reading aloud. Esc stops.", systemImage: "speaker.wave.2.fill")
+                    .symbolEffect(.variableColor.iterative)
+                    .accessibilityIdentifier("readingStatus")
             } else {
                 Text(claudeStatus)
                     .accessibilityIdentifier("claudeStatus")

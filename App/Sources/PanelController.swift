@@ -12,8 +12,12 @@ final class PanelController {
         self.session = session
         self.composer = composer
         panel = FloatingPanel(content: PanelView(session: session, composer: composer))
-        // Esc throws away what was heard; any other way of closing keeps it in the field.
-        panel.onEscape = { composer.cancelTalking() }
+        // Esc throws away what was heard and stops reading aloud; any other way of closing keeps
+        // what was heard in the field and keeps reading.
+        panel.onEscape = {
+            composer.cancelTalking()
+            session.stopReadingAloud()
+        }
         panel.onClose = { composer.stopTalking() }
     }
 

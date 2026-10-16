@@ -26,6 +26,9 @@ extension XCUIApplication {
     /// "Listening… ⌃⌥⇧⌘Space sends, Esc cancels", "Sending…".
     var voiceStatus: XCUIElement { panel.descendants(matching: .any).matching(identifier: "voiceStatus").firstMatch }
 
+    /// "Reading aloud. Esc stops." in place of the claude line, as its value, while an answer is read aloud.
+    var readingStatus: XCUIElement { panel.descendants(matching: .any).matching(identifier: "readingStatus").firstMatch }
+
     /// Why listening stopped or failed, as its value, such as "Didn't hear anything.", in place of the claude line.
     var voiceMessage: XCUIElement { panel.descendants(matching: .any).matching(identifier: "voiceMessage").firstMatch }
 }

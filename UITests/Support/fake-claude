@@ -1,12 +1,14 @@
 #!/bin/bash
 # Stands in for claude in UI tests: answers each stream-json message with "Answer <n>: <message>",
 # counting from 1 per process, so a follow-up shows it reached the same process. A message containing
-# "boom" makes it write "something broke" to stderr and exit with status 3.
+# "boom" makes it write "something broke" to stderr and exit with status 3. One containing "story" is
+# answered with a story, in Markdown, that takes about 20 seconds to read aloud.
 n=0
 while IFS= read -r line; do
   n=$((n+1))
   case "$line" in *boom*) echo "something broke" >&2; exit 3;; esac
   content=$(printf '%s' "$line" | sed -E 's/.*"content":("([^"\\]|\\.)*").*/\1/')
+  case "$line" in *story*) content="\"Once upon a time, a **fox** lived at the edge of a quiet forest. Every morning it walked to the river to drink. One day it met an old turtle resting on a warm stone. The turtle told it stories about the mountains far away, where the snow never melts. The fox listened until the sun went down, and then it walked home, thinking about the mountains.\"";; esac
   echo '{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}}'
   echo "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Answer $n: \"}}}"
   echo "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":$content}}}"

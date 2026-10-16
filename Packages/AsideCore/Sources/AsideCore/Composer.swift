@@ -3,6 +3,7 @@ import Observation
 
 /// What's in the panel's field, typed or spoken, and sending it. The talk hotkey starts listening and
 /// the next press sends what was heard; typing stops listening and keeps the text; Esc throws it away.
+/// The answer to a question sent while listening is read aloud.
 @MainActor @Observable
 public final class Composer {
     public enum Voice: Equatable, Sendable {
@@ -45,7 +46,7 @@ public final class Composer {
 
     /// Return. Sends the field's text; while listening, sends once the last words are in.
     public func submit() {
-        if voice == .listening { finishTalking() } else if listener == nil { send() }
+        if voice == .listening { finishTalking() } else if listener == nil { send(aloud: false) }
     }
 
     /// The talk hotkey: starts listening, or sends what was heard.
@@ -74,7 +75,9 @@ public final class Composer {
         Log.voice.info("Stopped listening")
     }
 
+    /// Stops reading the last answer aloud first, so the microphone doesn't hear it.
     private func startTalking() {
+        session.stopReadingAloud()
         let listener = listen()
         self.listener = listener
         textBeforeTalking = text
@@ -117,15 +120,15 @@ public final class Composer {
         if text == textBeforeTalking {
             voiceMessage = Self.heardNothing
         } else {
-            send()
+            send(aloud: true)
         }
     }
 
     /// Sends the text and clears the field. While an answer is still coming, the text stays.
-    private func send() {
+    private func send(aloud: Bool) {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !session.conversation.isResponding else { return }
-        session.send(question)
+        session.send(question, aloud: aloud)
         text = ""
     }
 }
