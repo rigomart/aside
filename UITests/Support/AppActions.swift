@@ -5,13 +5,17 @@ extension XCUIApplication {
     /// Aside's floating panel. It is a borderless `NSPanel`, which XCUITest lists as a dialog.
     var panel: XCUIElement { dialogs["panel"] }
 
-    /// The panel's text field, found by its placeholder.
-    var askField: XCUIElement { panel.textFields["Ask anything"] }
+    /// The panel's text field, in the glass pill.
+    var askField: XCUIElement { panel.textFields["askField"] }
 
-    /// The line under the field that says where `claude` is, or that it is missing.
+    /// The microphone button at the end of the field: starts listening, or sends what was heard.
+    var talkButton: XCUIElement { panel.buttons["talkButton"] }
+
+    /// The red line under the field that says claude is missing. It isn't there when claude was found.
     var claudeStatus: XCUIElement { panel.staticTexts["claudeStatus"] }
 
-    /// The transcript's questions, answers and errors, oldest first.
+    /// The newest question, its answer and any error, in the card under the field. Earlier exchanges
+    /// aren't shown, so each query has at most one element.
     var questions: XCUIElementQuery { panel.staticTexts.matching(identifier: "question") }
     var answers: XCUIElementQuery { panel.staticTexts.matching(identifier: "answer") }
     var errors: XCUIElementQuery { panel.descendants(matching: .any).matching(identifier: "error") }
@@ -19,17 +23,18 @@ extension XCUIApplication {
     /// "Thinking…" or what Claude is doing, while an answer is still coming.
     var activity: XCUIElement { panel.staticTexts["activity"] }
 
-    /// The button that starts a new conversation (Command-N). Shown once there is a transcript.
-    var newConversationButton: XCUIElement { panel.buttons["New conversation ⌘N"] }
+    /// The button that starts a new conversation (Command-N), in the answer card's footer.
+    var newConversationButton: XCUIElement { panel.buttons["newConversation"] }
 
-    /// While talking, the line under the field, as its value: "Starting the microphone…",
-    /// "Listening… ⌃⌥⇧⌘Space sends, Esc cancels", "Sending…".
+    /// While talking, the line under the voice bars, as its label: "Starting the microphone…",
+    /// "Listening · ⌃⌥⇧⌘Space sends · Esc cancels" (shown as key caps), "Sending…".
     var voiceStatus: XCUIElement { panel.descendants(matching: .any).matching(identifier: "voiceStatus").firstMatch }
 
-    /// "Reading aloud. Esc stops." in place of the claude line, as its value, while an answer is read aloud.
+    /// The "Reading" and "Esc stops" chips in the answer card's footer while an answer is read aloud.
+    /// Its label is "Reading aloud. Esc stops."
     var readingStatus: XCUIElement { panel.descendants(matching: .any).matching(identifier: "readingStatus").firstMatch }
 
-    /// Why listening stopped or failed, as its value, such as "Didn't hear anything.", in place of the claude line.
+    /// Why listening stopped or failed, as its value, such as "Didn't hear anything.", in red under the field.
     var voiceMessage: XCUIElement { panel.descendants(matching: .any).matching(identifier: "voiceMessage").firstMatch }
 }
 

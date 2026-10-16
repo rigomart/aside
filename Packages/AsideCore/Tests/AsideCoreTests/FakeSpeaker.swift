@@ -19,6 +19,12 @@ final class FakeSpeaker: Speaker {
         stops += 1
     }
 
+    /// Stands for the synthesizer finishing the sentence it is saying.
+    func finishSentence() {
+        guard !waiting.isEmpty else { return }
+        waiting.removeFirst()()
+    }
+
     func finishSpeaking() {
         let done = waiting
         waiting.removeAll()

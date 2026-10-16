@@ -2,8 +2,8 @@ import XCTest
 
 /// Asking and answering, against `fake-claude` so answers are exact and no subscription is used.
 final class ConversationTests: VerifyTestCase {
-    /// A question typed over another app is answered in the panel, a follow-up reaches the same claude,
-    /// and Command-N starts a new conversation with a fresh one.
+    /// A question typed over another app is answered in the panel, a follow-up reaches the same claude
+    /// and replaces the answer shown, and Command-N starts a new conversation with a fresh one.
     @MainActor func testAnswersFollowUpsAndNewConversation() {
         let app = launch(claude: Self.fakeClaude)
         let calculator = launchFrontApp()
@@ -17,7 +17,9 @@ final class ConversationTests: VerifyTestCase {
         shot("answered", of: panel)
 
         ask("And \(stamp)?", in: app)
-        waitForValue("Answer 2: And \(stamp)?", of: app.answers.element(boundBy: 1))
+        waitForValue("Answer 2: And \(stamp)?", of: app.answers.element(boundBy: 0))
+        XCTAssertEqual(app.questions.element(boundBy: 0).value as? String, "And \(stamp)?")
+        XCTAssertEqual(app.answers.count, 1, "Only the newest answer shows")
         shot("follow-up", of: panel)
 
         app.askField.typeKey("n", modifierFlags: .command)
@@ -43,7 +45,7 @@ final class ConversationTests: VerifyTestCase {
         shot("started-over", of: panel)
     }
 
-    /// With claude missing, the status line says so, and asking shows the same message instead of hanging.
+    /// With claude missing, a red line under the field says so, and asking shows the same message instead of hanging.
     @MainActor func testMissingClaudeShowsInPanel() {
         let app = launch(claude: "/nonexistent/claude")
         let panel = openPanelWithURL(app)

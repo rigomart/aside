@@ -1,9 +1,9 @@
 import XCTest
 
 /// Reading answers aloud, with `spoken-question.m4a` standing in for the microphone and `fake-claude`
-/// answering. Tests see the panel's "Reading aloud" line; the sound itself plays on the Mac's speakers.
+/// answering. Tests see the "Reading" chips under the answer; the sound itself plays on the Mac's speakers.
 final class ReadAloudTests: VerifyTestCase {
-    /// The answer to a spoken question is read aloud, and the line goes away once it has been said.
+    /// The answer to a spoken question is read aloud, and the chips go away once it has been said.
     @MainActor func testSpokenQuestionIsReadAloud() {
         let app = launch(claude: Self.fakeClaude, heard: Self.spokenQuestion)
         let calculator = launchFrontApp()
@@ -13,11 +13,11 @@ final class ReadAloudTests: VerifyTestCase {
         app.askField.typeKey(Self.talkHotkey.key, modifierFlags: Self.talkHotkey.modifiers)
         waitForValue("Answer 1: \(Self.spokenQuestionText)", of: app.answers.element(boundBy: 0))
         XCTAssertTrue(app.readingStatus.waitForExistence(timeout: 5), "Not reading aloud")
-        XCTAssertEqual(app.readingStatus.value as? String, "Reading aloud. Esc stops.")
+        XCTAssertEqual(app.readingStatus.label, "Reading aloud. Esc stops.")
         shot("reading", of: panel)
 
         XCTAssertTrue(app.readingStatus.waitForNonExistence(timeout: 20), "Still reading after 20 s")
-        XCTAssertTrue(app.claudeStatus.exists, "The claude line should come back")
+        XCTAssertEqual(app.answers.element(boundBy: 0).value as? String, "Answer 1: \(Self.spokenQuestionText)")
         shot("read", of: panel)
     }
 

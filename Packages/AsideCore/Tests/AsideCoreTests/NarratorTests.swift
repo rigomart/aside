@@ -34,6 +34,24 @@ struct NarratorTests {
         #expect(!narrator.isReading)
     }
 
+    @Test mutating func theCaptionFollowsTheSentenceBeingSaid() {
+        let narrator = Narrator(speaker: speaker)
+        narrator.start(conversation.ask("Rice?"))
+        #expect(narrator.caption == Caption(said: "", saying: "", coming: ""))
+
+        stream(["Fried rice is **best**. Scramble", " two eggs.\n- Add peas"], to: narrator)
+        #expect(narrator.caption == Caption(said: "", saying: "Fried rice is best.", coming: "Scramble two eggs. Add peas"))
+
+        speaker.finishSentence()
+        #expect(narrator.caption == Caption(said: "Fried rice is best.", saying: "Scramble two eggs.", coming: "Add peas"))
+
+        end(narrator)
+        speaker.finishSentence()
+        #expect(narrator.caption == Caption(said: "Fried rice is best. Scramble two eggs.", saying: "Add peas", coming: ""))
+        speaker.finishSentence()
+        #expect(narrator.caption == nil)
+    }
+
     @Test mutating func aPauseForAToolSaysWhatCameBefore() {
         let narrator = Narrator(speaker: speaker)
         narrator.start(conversation.ask("News?"))
@@ -63,6 +81,7 @@ struct NarratorTests {
         stream(["Once upon a time. There was"], to: narrator)
         narrator.stop()
         #expect(!narrator.isReading)
+        #expect(narrator.caption == nil)
         #expect(speaker.stops == 1)
 
         stream([" a fox."], to: narrator)

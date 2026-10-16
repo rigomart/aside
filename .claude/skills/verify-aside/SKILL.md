@@ -69,12 +69,12 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 | Need | Use |
 | --- | --- |
 | Launch Aside Verify | `launch()`, `launch(claude: Self.fakeClaude)` (see Which claude), or `launch(["-Arg", "value"])` to arrange a precondition through a user setting |
-| The panel, its field, the claude line | `app.panel` (a dialog, identifier `panel`), `app.askField` (placeholder "Ask anything"), `app.claudeStatus` (identifier `claudeStatus`) |
-| Ask, and read the transcript | `ask("What is \(stamp)?", in: app)` (types it and Return); `app.questions`, `app.answers`, `app.errors` (queries, oldest first: `.element(boundBy: 0)`); `app.activity` ("Thinking…", "Searching the web…"); `app.newConversationButton` |
+| The panel, its field, the claude line | `app.panel` (a dialog, identifier `panel`), `app.askField` (identifier `askField`; placeholder "Ask, or <talk shortcut> to talk", then "Ask a follow-up"), `app.talkButton` (the microphone in the field), `app.claudeStatus` (identifier `claudeStatus`, only when claude is missing) |
+| Ask, and read the transcript | `ask("What is \(stamp)?", in: app)` (types it and Return); `app.questions`, `app.answers`, `app.errors` (only the newest exchange shows, so `.element(boundBy: 0)`); `app.activity` ("Thinking…", "Searching the web…"); `app.newConversationButton` |
 | Wait for exact text | `waitForValue("Answer 1: What is \(stamp)?", of: app.answers.element(boundBy: 0))` |
 | Open with the hotkey, another app in front | `let calculator = launchFrontApp()`, then `pressHotkey(over: calculator, in: app)` |
 | Talk | `pressTalkHotkey(over: calculator, in: app)` opens the panel listening; in an open panel, `app.askField.typeKey(Self.talkHotkey.key, modifierFlags: Self.talkHotkey.modifiers)` starts listening or sends. Needs `launch(heard:)` |
-| Listening status and voice errors | `app.voiceStatus` ("Starting the microphone…", "Listening… ⌃⌥⇧⌘Space sends, Esc cancels", "Sending…") and `app.voiceMessage` ("Didn't hear anything.", failures); both are static texts: read `.value` |
+| Listening status and voice errors | `app.voiceStatus` ("Starting the microphone…", "Listening · ⌃⌥⇧⌘Space sends · Esc cancels", "Sending…"; read `.label`) and `app.voiceMessage` ("Didn't hear anything.", failures; a static text: read `.value`) |
 | Open from the menu bar | `openPanelFromMenuBar(app)`: status item `Aside`, menu item `Show Aside` |
 | Open when how it opens is not the change | `openPanelWithURL(app)` (`aside-verify://show`) |
 | Any URL: `show`, `hide`, `toggle` | `openURL("toggle")`, then `waitForPanel(in: app)` or `panel.waitForNonExistence(timeout: 5)` |
@@ -84,9 +84,9 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 | Calculator's display | `display(of: calculator)` |
 | Evidence | `shot("label", of: panel)` (cropped from its display); for a closed panel, keep `let frame = panel.frame` while it's open and later `shot("closed", region: frame)`; `shotScreens("label")` (every display, including whatever else the owner has open: use only when the change is about other apps); `tree(app)` |
 
-- Query from a container by what the owner sees: `app.panel.textFields["Ask anything"]`, `app.statusItems["Aside"]`, `app.menuItems["Show Aside"]`. Add an `.accessibilityIdentifier` in the app for anything without a stable label, and add it to the table above.
+- Query from a container by what the owner sees: `app.panel.buttons["New conversation"]`, `app.statusItems["Aside"]`, `app.menuItems["Show Aside"]`. Add an `.accessibilityIdentifier` in the app for anything without a stable label, and add it to the table above.
 - Wait on conditions: `waitForExistence(timeout:)`, `waitForNonExistence(timeout:)`, or `XCTNSPredicateExpectation` + `XCTWaiter.wait` for a value or `hasKeyboardFocus`. `sleep` is never proof.
-- Assert exact text. Use `BEGINSWITH` only for text that varies by design, as `testPanelShowsWhereClaudeIs` does with the claude path.
+- Assert exact text. Use `BEGINSWITH` only for text that varies by design, as `VoiceTests.testListeningFailureShows` does with the failure message.
 - Never call `app.activate()` on Aside: the panel is non-activating by design, and activating changes the behavior under test. Never use `app.open(url)`: it quits and relaunches Aside without its launch arguments.
 - To see what is on screen mid-test, call `tree(app)` and read the attachment in the evidence folder.
 - Light appearance: `launch(["-NSRequiresAquaSystemAppearance", "YES"])`. This Mac runs in dark mode, which is the default look; `-AppleInterfaceStyle Light` does nothing.
@@ -112,7 +112,7 @@ Helpers live in `UITests/Support/`. Read both files before writing a test; copy 
 | Typing going back to the previous app after Esc | Works with a real keyboard (the owner checked), but XCUITest can't show it (see Gotchas). Manual test 3. |
 | How fast an answer streams; copying answer text with the mouse | "Text loop (M1)" in `docs/manual-tests.md`. The 10-minute idle reset is unit-tested in `AssistantSessionTests`. |
 | The microphone, the permission prompt, headsets, noise (M2) | Tests hear a file (`launch(heard:)`), so everything after the microphone is covered. The rest is "Voice input (M2)" in `docs/manual-tests.md`. |
-| Sound (M3) | Prove what the panel shows: `app.readingStatus` ("Reading aloud. Esc stops."). It appears for the whole time the synthesizer speaks, so it going away shows the answer was said to the end. Which words are said is unit-tested (`SpokenTextTests`, `NarratorTests`); the sound is "Voice output (M3)" in `docs/manual-tests.md`. UI tests play speech on the Mac's speakers. |
+| Sound (M3) | Prove what the panel shows: `app.readingStatus` (label "Reading aloud. Esc stops."), and while it shows, `app.answers` is the captions. It appears for the whole time the synthesizer speaks, so it going away shows the answer was said to the end. Which words are said is unit-tested (`SpokenTextTests`, `NarratorTests`); the sound is "Voice output (M3)" in `docs/manual-tests.md`. UI tests play speech on the Mac's speakers. |
 | Light appearance on a light system, `-AppleInterfaceStyle Dark` | Not checked; this Mac runs dark. |
 
 ## Look around

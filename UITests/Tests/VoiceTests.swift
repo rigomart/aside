@@ -11,7 +11,7 @@ final class VoiceTests: VerifyTestCase {
 
         XCTAssertTrue(app.voiceStatus.waitForExistence(timeout: 5), "No listening status")
         waitForValue(Self.spokenQuestionText, of: app.askField, timeout: 30)
-        XCTAssertEqual(app.voiceStatus.value as? String, "Listening… ⌃⌥⇧⌘Space sends, Esc cancels")
+        XCTAssertEqual(app.voiceStatus.label, "Listening · ⌃⌥⇧⌘Space sends · Esc cancels")
         XCTAssertEqual(calculator.state, .runningForeground, "Calculator should stay the active app")
         shot("heard", of: panel)
 

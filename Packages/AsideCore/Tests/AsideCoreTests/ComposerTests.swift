@@ -13,6 +13,7 @@ final class FakeListener: Listener {
 
     func listen() { output.yield(.listening) }
     func hear(_ words: String) { output.yield(.heard(words)) }
+    func sound(_ level: Float) { output.yield(.level(level)) }
     func fail(_ message: String) { output.finish(throwing: ListenError(message)) }
     func finish() { output.finish() }
     func cancel() { output.finish() }
@@ -55,6 +56,16 @@ struct ComposerTests {
         await eventually { composer.voice == .off }
         #expect(session.conversation.exchanges.map(\.question) == ["What is the time?"])
         #expect(composer.text == "")
+    }
+
+    @Test func theLevelFollowsTheMicrophoneAndDropsWhenListeningStops() async throws {
+        let (composer, _) = try composer()
+        composer.toggleTalking()
+        listener.listen()
+        listener.sound(0.7)
+        await eventually { composer.level == 0.7 }
+        composer.stopTalking()
+        #expect(composer.level == 0)
     }
 
     @Test func returnWhileListeningSendsToo() async throws {

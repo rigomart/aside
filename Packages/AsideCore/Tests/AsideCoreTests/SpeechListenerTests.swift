@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Testing
 @testable import AsideCore
@@ -27,10 +28,14 @@ struct SpeechListenerTests {
             events.append(event)
             if event == .heard("What is the tallest mountain in Peru?") { listener.finish() }
         }
-        #expect(events.contains(.listening))
-        #expect(events.last == .heard("What is the tallest mountain in Peru?"))
+        let levels = events.compactMap { if case .level(let level) = $0 { level } else { nil } }
+        let others = events.filter { if case .level = $0 { false } else { true } }
+        #expect(others.contains(.listening))
+        #expect(others.last == .heard("What is the tallest mountain in Peru?"))
         // Words arrive as they are spoken, not all at once.
-        #expect(events.count(where: { if case .heard = $0 { true } else { false } }) > 2)
+        #expect(others.count(where: { if case .heard = $0 { true } else { false } }) > 2)
+        // The level rises while the voice speaks.
+        #expect(levels.contains { $0 > 0.5 })
     }
 
     @Test func aMissingFileSaysSo() async throws {
@@ -45,4 +50,25 @@ struct SpeechListenerTests {
     #expect(joined("Hello there.", " How are you?") == "Hello there. How are you?")
     #expect(joined("Hello", "world") == "Hello world")
     #expect(joined("", " First") == "First")
+}
+
+struct AudioLevelTests {
+    func buffer(_ samples: [Float]) -> AVAudioPCMBuffer {
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count))!
+        buffer.frameLength = AVAudioFrameCount(samples.count)
+        for (index, sample) in samples.enumerated() { buffer.floatChannelData![0][index] = sample }
+        return buffer
+    }
+
+    @Test func silenceIsZeroAndLoudSpeechIsOne() {
+        #expect(SpeechListener.level(of: buffer(Array(repeating: 0, count: 512))) == 0)
+        #expect(SpeechListener.level(of: buffer(Array(repeating: 0.5, count: 512))) == 1)
+    }
+
+    @Test func aQuietVoiceIsInBetween() {
+        // RMS 0.01 is -40 dB: a quarter of the way from -50 dB to -10 dB.
+        let level = SpeechListener.level(of: buffer(Array(repeating: 0.01, count: 512)))
+        #expect(abs(level - 0.25) < 0.001)
+    }
 }
