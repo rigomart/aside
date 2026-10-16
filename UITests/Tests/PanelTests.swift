@@ -33,15 +33,31 @@ final class PanelTests: VerifyTestCase {
         XCTAssertTrue(panel.waitForNonExistence(timeout: 5), "The hotkey did not close the open panel")
     }
 
-    /// The line under the field says where `claude` was found.
-    @MainActor func testPanelShowsWhereClaudeIs() {
-        let app = launch()
+    /// The panel opens in the bottom-right corner of the screen the pointer is on, with no claude line
+    /// when claude was found. An answer grows up from the field, which stays in the corner.
+    @MainActor func testPanelOpensInTheBottomRightCorner() throws {
+        let app = launch(claude: Self.fakeClaude)
         let panel = openPanelWithURL(app)
 
-        let found = NSPredicate(format: "value BEGINSWITH %@", "claude: /")
-        let status = XCTNSPredicateExpectation(predicate: found, object: app.claudeStatus)
-        XCTAssertEqual(XCTWaiter.wait(for: [status], timeout: 10), .completed,
-                       "Status line says: \(app.claudeStatus.value as? String ?? "nothing")")
-        shot("claude-status", of: panel)
+        // XCUITest frames are in points from the top left of the main display; AppKit's from the bottom left.
+        let pointer = NSEvent.mouseLocation
+        let screen = try XCTUnwrap(NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) })
+        let mainHeight = try XCTUnwrap(NSScreen.screens.first).frame.height
+        // The test runner's `visibleFrame` leaves the menu bar and Dock in, so the app's bottom edge, which
+        // leaves the Dock out, can be up to a Dock's height higher.
+        let visible = screen.visibleFrame
+        let screenBottom = mainHeight - visible.minY
+        XCTAssertEqual(panel.frame.maxX, visible.maxX, accuracy: 1, "The panel should touch the right edge")
+        XCTAssertLessThanOrEqual(panel.frame.maxY, screenBottom + 1, "The panel runs off the bottom of the screen")
+        XCTAssertGreaterThan(panel.frame.maxY, screenBottom - 150, "The panel should be at the bottom of the screen")
+        XCTAssertFalse(app.claudeStatus.waitForExistence(timeout: 2), "A claude line shows though claude was found")
+        shot("panel-right", of: panel)
+
+        let field = app.askField.frame
+        ask("Where \(stamp)?", in: app)
+        waitForValue("Answer 1: Where \(stamp)?", of: app.answers.element(boundBy: 0))
+        XCTAssertEqual(app.askField.frame, field, "The field moved when the answer came")
+        XCTAssertLessThan(app.answers.element(boundBy: 0).frame.maxY, field.minY, "The answer should be above the field")
+        shot("answer-above", of: panel)
     }
 }

@@ -17,4 +17,6 @@ public enum ListenerEvent: Equatable, Sendable {
     case listening
     /// Everything heard so far. Words at the end may still change until they are final.
     case heard(String)
+    /// How loud the audio is, from 0 (silence) to 1 (loud speech), about 20 times a second.
+    case level(Float)
 }

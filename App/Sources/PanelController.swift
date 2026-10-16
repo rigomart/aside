@@ -31,14 +31,14 @@ final class PanelController {
         composer.toggleTalking()
     }
 
-    /// Shows the panel near the top of the screen the pointer is on, without activating the app,
-    /// so the app the user was in stays frontmost. Starts claude, so it's ready for the question.
+    /// Shows the panel in the bottom-right corner of the screen the pointer is on, above the Dock, without
+    /// activating the app, so the app the user was in stays frontmost. The field is at the bottom and the
+    /// answer grows up from it. Starts claude, so it's ready for the question.
     func show() {
         session.prepare()
         let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
         if let frame = screen?.visibleFrame {
-            let size = panel.frame.size
-            panel.setFrameOrigin(NSPoint(x: frame.midX - size.width / 2, y: frame.minY + frame.height * 0.75 - size.height))
+            panel.setFrameOrigin(NSPoint(x: frame.maxX - panel.frame.width, y: frame.minY))
         }
         panel.makeKeyAndOrderFront(nil)
         Log.panel.info("Shown")
@@ -65,7 +65,8 @@ private final class FloatingPanel: NSPanel {
         hidesOnDeactivate = false
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
+        // The glass draws its own shadows; the window's would trace the transparent space between them.
+        hasShadow = false
         isMovableByWindowBackground = true
         animationBehavior = .utilityWindow
         identifier = NSUserInterfaceItemIdentifier("panel")
@@ -73,6 +74,14 @@ private final class FloatingPanel: NSPanel {
         let hosting = NSHostingView(rootView: content)
         contentView = hosting
         setContentSize(hosting.fittingSize)
+    }
+
+    /// SwiftUI resizes the window as its content changes, keeping its top edge. Keep the bottom edge
+    /// instead, so the field stays in the corner and the answer grows upward.
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        var frame = frameRect
+        if frame.size != self.frame.size { frame.origin.y = self.frame.minY }
+        super.setFrame(frame, display: flag)
     }
 
     override var canBecomeKey: Bool { true }

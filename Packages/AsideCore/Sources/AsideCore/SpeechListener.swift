@@ -75,9 +75,10 @@ public final class SpeechListener: Listener {
 
         let (input, feed) = AsyncStream.makeStream(of: AnalyzerInput.self)
         let failed: @Sendable (any Error) -> Void = { stop.yield(.failed($0)) }
+        let level: @Sendable (Float) -> Void = { output.yield(.level($0)) }
         let stopAudio = switch source {
-        case .microphone: try startMicrophone(format: format, feed: feed, failed: failed)
-        case .file(let url): try startFile(url, format: format, feed: feed, failed: failed)
+        case .microphone: try startMicrophone(format: format, feed: feed, level: level, failed: failed)
+        case .file(let url): try startFile(url, format: format, feed: feed, level: level, failed: failed)
         }
         defer { stopAudio() }
         try await analyzer.start(inputSequence: input)
@@ -127,15 +128,18 @@ public final class SpeechListener: Listener {
         throw ListenError("Aside can't use the microphone. Allow it in System Settings › Privacy & Security › Microphone.")
     }
 
-    /// Feeds the microphone to `feed` until the returned closure is called.
+    /// Feeds the microphone to `feed`, and how loud each buffer is to `level`, until the returned closure is called.
     private static func startMicrophone(
-        format: AVAudioFormat, feed: AsyncStream<AnalyzerInput>.Continuation, failed: @escaping @Sendable (any Error) -> Void
+        format: AVAudioFormat, feed: AsyncStream<AnalyzerInput>.Continuation, level: @escaping @Sendable (Float) -> Void,
+        failed: @escaping @Sendable (any Error) -> Void
     ) throws -> () -> Void {
         let engine = AVAudioEngine()
         let microphone = engine.inputNode.outputFormat(forBus: 0)
         guard microphone.channelCount > 0, microphone.sampleRate > 0 else { throw ListenError("No microphone found.") }
         let converter = try Converter(from: microphone, to: format)
-        engine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: microphone) { buffer, _ in
+        // About 20 buffers a second at 48 kHz, so the level moves smoothly.
+        engine.inputNode.installTap(onBus: 0, bufferSize: 2048, format: microphone) { buffer, _ in
+            level(Self.level(of: buffer))
             do {
                 feed.yield(AnalyzerInput(buffer: try converter.convert(buffer)))
             } catch {
@@ -157,9 +161,10 @@ public final class SpeechListener: Listener {
 
     /// Feeds `url` to `feed` in real time, then silence, as a microphone in a quiet room would,
     /// until the returned closure is called. The analyzer only moves on while audio keeps coming.
+    /// How loud each buffer is goes to `level`.
     private static func startFile(
         _ url: URL, format: AVAudioFormat, feed: AsyncStream<AnalyzerInput>.Continuation,
-        failed: @escaping @Sendable (any Error) -> Void
+        level: @escaping @Sendable (Float) -> Void, failed: @escaping @Sendable (any Error) -> Void
     ) throws -> () -> Void {
         let file: AVAudioFile
         do {
@@ -171,8 +176,9 @@ public final class SpeechListener: Listener {
         let reader = Task {
             do {
                 while file.framePosition < file.length {
-                    guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 4096) else { return }
+                    guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 2048) else { return }
                     try file.read(into: buffer)
+                    level(Self.level(of: buffer))
                     feed.yield(AnalyzerInput(buffer: try converter.convert(buffer)))
                     try await Task.sleep(for: .seconds(Double(buffer.frameLength) / file.processingFormat.sampleRate))
                 }
@@ -184,6 +190,7 @@ public final class SpeechListener: Listener {
                         memset(channel.mData, 0, Int(channel.mDataByteSize))
                     }
                     feed.yield(AnalyzerInput(buffer: silence))
+                    level(0)
                     try await Task.sleep(for: .milliseconds(100))
                 }
             } catch is CancellationError {
@@ -192,6 +199,19 @@ public final class SpeechListener: Listener {
             }
         }
         return { reader.cancel() }
+    }
+}
+
+extension SpeechListener {
+    /// How loud `buffer` is, from 0 to 1: its first channel's loudness (RMS) from -50 dB, a quiet room,
+    /// to -10 dB, speaking up close. A buffer without float samples counts as silence.
+    static func level(of buffer: AVAudioPCMBuffer) -> Float {
+        guard let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return 0 }
+        let count = Int(buffer.frameLength)
+        var sum: Float = 0
+        for index in 0..<count { sum += samples[index] * samples[index] }
+        let decibels = 10 * log10(max(sum / Float(count), 1e-10))
+        return min(max((decibels + 50) / 40, 0), 1)
     }
 }
 

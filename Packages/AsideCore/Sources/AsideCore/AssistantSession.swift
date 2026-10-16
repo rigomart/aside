@@ -67,6 +67,9 @@ public final class AssistantSession {
     /// Whether an answer is being read aloud.
     public var isReadingAloud: Bool { narrator.isReading }
 
+    /// While the newest answer is read aloud, where the reading is in it.
+    public var caption: Caption? { narrator.caption }
+
     /// Asks `question` in the current conversation, and reads the answer aloud if `aloud`. Stops reading
     /// the last answer either way. Ignored while the last question is still being answered.
     public func send(_ question: String, aloud: Bool = false) {

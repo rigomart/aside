@@ -20,6 +20,8 @@ public final class Composer {
     /// The field's text. While listening, it is what was typed before plus what has been heard.
     public private(set) var text = ""
     public private(set) var voice = Voice.off
+    /// While talking, how loud the microphone is, from 0 to 1. 0 when not talking.
+    public private(set) var level: Float = 0
     /// Why listening stopped or failed, until the next edit or talk.
     public private(set) var voiceMessage: String?
 
@@ -72,6 +74,7 @@ public final class Composer {
         listener.cancel()
         self.listener = nil
         voice = .off
+        level = 0
         Log.voice.info("Stopped listening")
     }
 
@@ -106,6 +109,8 @@ public final class Composer {
                     Log.voice.info("Listening")
                 case .heard(let words):
                     text = [textBeforeTalking, words].filter { !$0.isEmpty }.joined(separator: " ")
+                case .level(let level):
+                    self.level = level
                 }
             }
         } catch {
@@ -116,6 +121,7 @@ public final class Composer {
         guard listener === self.listener else { return }
         self.listener = nil
         voice = .off
+        level = 0
         guard sendWhenDone, voiceMessage == nil else { return }
         if text == textBeforeTalking {
             voiceMessage = Self.heardNothing
