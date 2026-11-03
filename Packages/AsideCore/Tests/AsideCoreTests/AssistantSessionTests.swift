@@ -131,11 +131,42 @@ struct AssistantSessionTests {
         #expect(speaker.stops == 1)
     }
 
+    func waitForApproval(_ session: AssistantSession) async {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while session.conversation.exchanges.last?.approval == nil {
+            guard ContinuousClock.now < deadline else { Issue.record("No approval asked after 5 s"); return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    @Test func allowingAToolLetsClaudeUseIt() async throws {
+        let session = session(claude: try fake.write())
+        session.send("approve")
+        await waitForApproval(session)
+        #expect(session.conversation.exchanges[0].approval?.detail == "note.md")
+        #expect(session.conversation.isResponding)
+        session.answerApproval(allow: true)
+        #expect(session.conversation.exchanges[0].approval == nil)
+        await settle(session)
+        #expect(answers(session) == ["Answer 1: Allowed: wrote note.md."])
+    }
+
+    @Test func denyingAToolTellsClaude() async throws {
+        let session = session(claude: try fake.write())
+        session.send("approve")
+        await waitForApproval(session)
+        session.answerApproval(allow: false)
+        await settle(session)
+        #expect(answers(session) == ["Answer 1: Denied: The owner declined."])
+    }
+
     @Test func writesTheWorkspaceInstructions() async throws {
         let session = session(claude: try fake.write())
         session.send("hello")
         await settle(session)
         let instructions = try String(contentsOf: fake.directory.appending(path: "data/workspace/CLAUDE.md"), encoding: .utf8)
-        #expect(instructions == Workspace.instructions)
+        #expect(instructions == Workspace.instructions())
+        #expect(instructions.contains("- Search the web for anything current: news, prices, schedules, versions, opening hours.\n"))
+        #expect(instructions.contains("- You can't see their screen or files. Your only tools are web search and reading web pages.\n"))
     }
 }

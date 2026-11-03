@@ -14,8 +14,34 @@ struct ClaudeProcessTests {
         let arguments = ClaudeProcess.arguments(model: "sonnet").joined(separator: " ")
         #expect(arguments.contains("--setting-sources project"))
         #expect(arguments.contains("--strict-mcp-config"))
-        #expect(arguments.contains("--tools WebSearch,WebFetch"))
+        #expect(arguments.contains("--tools WebSearch,WebFetch --allowedTools WebSearch,WebFetch"))
+        #expect(arguments.contains("--permission-prompts host --permission-prompt-tool stdio"))
         #expect(arguments.contains("--model sonnet"))
+    }
+
+    @Test func toolsThatAskFirstAreNotAllowedUpFront() {
+        let write = Tool(name: "Write", activity: "Writing…", nameInInstructions: "writing files", whenToUse: nil, asksFirst: true)
+        let arguments = ClaudeProcess.arguments(model: "sonnet", tools: [.webSearch, write]).joined(separator: " ")
+        #expect(arguments.contains("--tools WebSearch,Write --allowedTools WebSearch --permission-prompts"))
+        let onlyAsking = ClaudeProcess.arguments(model: "sonnet", tools: [write])
+        #expect(!onlyAsking.contains("--allowedTools"))
+    }
+
+    @Test func answerLinesRepeatTheRequest() {
+        let request = ApprovalRequest(id: "r1", tool: "Write", detail: "note.md", input: Data(#"{"file_path":"note.md"}"#.utf8))
+        #expect(String(decoding: ClaudeProcess.answerLine(to: request, allow: true), as: UTF8.self)
+            == #"{"response":{"request_id":"r1","response":{"behavior":"allow","updatedInput":{"file_path":"note.md"}},"subtype":"success"},"type":"control_response"}"# + "\n")
+        #expect(String(decoding: ClaudeProcess.answerLine(to: request, allow: false), as: UTF8.self)
+            == #"{"response":{"request_id":"r1","response":{"behavior":"deny","message":"The owner declined."},"subtype":"success"},"type":"control_response"}"# + "\n")
+    }
+
+    @Test func refusesRequestsAsideDoesNotHandle() async throws {
+        let process = try ClaudeProcess(executable: try fake.write(), arguments: [], directory: fake.directory)
+        var outputs = process.outputs.makeAsyncIterator()
+        try process.send("unhandled")
+        #expect(await outputs.next() == .event(.textStarted))
+        #expect(await outputs.next() == .event(.text("Answer 1: ")))
+        #expect(await outputs.next() == .event(.text("Refused.")))
     }
 
     @Test func answersEachMessageInOneProcess() async throws {
