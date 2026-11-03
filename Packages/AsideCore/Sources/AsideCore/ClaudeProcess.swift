@@ -10,23 +10,39 @@ public final class ClaudeProcess: Sendable {
     }
 
     /// Flags for a conversation in Aside's workspace. Only the workspace's own settings and CLAUDE.md load,
-    /// none of the owner's MCP servers, and only the web tools exist. Anything that would ask for
-    /// permission is denied until the panel can ask (M4).
-    public static func arguments(model: String) -> [String] {
-        [
+    /// none of the owner's MCP servers, and only `tools` exist. Tools that don't ask first are allowed
+    /// up front; claude asks Aside on stdout before using any other, and waits for `answer`.
+    public static func arguments(model: String, tools: [Tool] = Tool.all) -> [String] {
+        let allowed = tools.filter { !$0.asksFirst }.map(\.name)
+        return [
             "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--include-partial-messages", "--model", model,
             "--setting-sources", "project", "--strict-mcp-config",
-            "--tools", "WebSearch,WebFetch", "--allowedTools", "WebSearch,WebFetch",
-            "--permission-prompts", "none",
+            "--tools", tools.map(\.name).joined(separator: ","),
+        ] + (allowed.isEmpty ? [] : ["--allowedTools", allowed.joined(separator: ",")]) + [
+            "--permission-prompts", "host", "--permission-prompt-tool", "stdio",
         ]
     }
 
     /// One user message as a line of stream-json input.
     public static func inputLine(_ text: String) -> Data {
-        let message = ["type": "user", "message": ["role": "user", "content": text]] as [String: Any]
-        // Serializing a dictionary of strings can't fail.
-        var line = try! JSONSerialization.data(withJSONObject: message, options: [.sortedKeys, .withoutEscapingSlashes])
+        line(["type": "user", "message": ["role": "user", "content": text]])
+    }
+
+    /// The owner's answer to `request`. A denied tool gets a message claude sees as the tool's result.
+    public static func answerLine(to request: ApprovalRequest, allow: Bool) -> Data {
+        let decision: [String: Any] = allow
+            ? ["behavior": "allow", "updatedInput": (try? JSONSerialization.jsonObject(with: request.input)) ?? [:]]
+            : ["behavior": "deny", "message": "The owner declined."]
+        return line(["type": "control_response", "response": ["subtype": "success", "request_id": request.id, "response": decision]])
+    }
+
+    static func refusalLine(to id: String, kind: String) -> Data {
+        line(["type": "control_response", "response": ["subtype": "error", "request_id": id, "error": "Aside doesn't handle \(kind) requests."]])
+    }
+
+    private static func line(_ object: [String: Any]) -> Data {
+        var line = try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes])
         line.append(UInt8(ascii: "\n"))
         return line
     }
@@ -52,6 +68,7 @@ public final class ClaudeProcess: Sendable {
         try process.run()
 
         let (outputs, output) = AsyncStream.makeStream(of: Output.self)
+        let input = stdin.fileHandleForWriting
         Task.detached {
             async let errors = Self.tail(of: Self.chunks(of: stderr.fileHandleForReading))
             // Split on newlines only: answer text may hold U+2028, which `lines` APIs also split on.
@@ -59,7 +76,13 @@ public final class ClaudeProcess: Sendable {
             for await chunk in Self.chunks(of: stdout.fileHandleForReading) {
                 buffer.append(chunk)
                 while let newline = buffer.firstIndex(of: UInt8(ascii: "\n")) {
-                    if let event = ClaudeEvent(json: buffer[..<newline]) { output.yield(.event(event)) }
+                    switch ClaudeEvent(json: buffer[..<newline]) {
+                    case .unsupportedRequest(let id, let kind):
+                        Log.claude.error("Refused a \(kind, privacy: .public) request from claude")
+                        try? input.write(contentsOf: Self.refusalLine(to: id, kind: kind))
+                    case let event?: output.yield(.event(event))
+                    case nil: break
+                    }
                     buffer.removeSubrange(...newline)
                 }
             }
@@ -70,12 +93,17 @@ public final class ClaudeProcess: Sendable {
         }
         self.outputs = outputs
         self.process = process
-        self.input = stdin.fileHandleForWriting
+        self.input = input
     }
 
     /// Sends a user message. Throws if the process has stopped reading.
     public func send(_ text: String) throws {
         try input.write(contentsOf: Self.inputLine(text))
+    }
+
+    /// Answers a request for the owner's approval. Throws if the process has stopped reading.
+    public func answer(_ request: ApprovalRequest, allow: Bool) throws {
+        try input.write(contentsOf: Self.answerLine(to: request, allow: allow))
     }
 
     /// Ends the process. `outputs` still finishes with `.exited`.

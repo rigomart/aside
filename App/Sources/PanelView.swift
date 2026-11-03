@@ -25,6 +25,7 @@ struct PanelView: View {
                     AnswerCard(
                         exchange: exchange,
                         caption: session.caption,
+                        answerApproval: { session.answerApproval(allow: $0) },
                         startNewConversation: session.startNewConversation
                     )
                 }
@@ -147,6 +148,7 @@ struct PanelView: View {
 private struct AnswerCard: View {
     let exchange: Conversation.Exchange
     let caption: Caption?
+    let answerApproval: (Bool) -> Void
     let startNewConversation: () -> Void
     @State private var contentHeight: CGFloat = 0
 
@@ -192,7 +194,9 @@ private struct AnswerCard: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("answer")
             }
-            if !exchange.isFinished, exchange.activity != nil || exchange.answer.isEmpty {
+            if let approval = exchange.approval {
+                ApprovalPrompt(request: approval, answer: answerApproval)
+            } else if !exchange.isFinished, exchange.activity != nil || exchange.answer.isEmpty {
                 Text(exchange.activity ?? "Thinking…")
                     .foregroundStyle(.tertiary)
                     .accessibilityIdentifier("activity")
@@ -277,6 +281,36 @@ private struct AnswerCard: View {
 private extension AnswerBlock {
     var isItem: Bool {
         if case .item = self { true } else { false }
+    }
+}
+
+private struct ApprovalPrompt: View {
+    let request: ApprovalRequest
+    let answer: (Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Allow \(request.tool)?")
+                    .font(.system(size: 15, weight: .semibold))
+                    .accessibilityIdentifier("approval")
+                if !request.detail.isEmpty {
+                    Text(request.detail)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .accessibilityIdentifier("approvalDetail")
+                }
+            }
+            HStack(spacing: 8) {
+                Button("Deny") { answer(false) }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("denyButton")
+                Button("Allow") { answer(true) }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("allowButton")
+            }
+            .controlSize(.large)
+        }
     }
 }
 

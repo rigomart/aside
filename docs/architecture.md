@@ -9,7 +9,7 @@
                        SpeechListener            ClaudeProcess, Narrator ─▶ SpeechSpeaker
 ```
 
-Built so far: the panel, hotkeys, menu bar item, URL scheme, the text loop (`AssistantSession`, `ClaudeProcess`, `Conversation`, `ClaudeEvent`, `Workspace`, `ClaudeLocator`) voice input (`Composer`, `SpeechListener`), voice output (`Narrator`, `SpokenText`, `SpeechSpeaker`) and answer formatting (`AnswerBlock`), all but the panel in `AsideCore`.
+Built so far: the panel, hotkeys, menu bar item, URL scheme, the text loop (`AssistantSession`, `ClaudeProcess`, `Conversation`, `ClaudeEvent`, `Workspace`, `ClaudeLocator`), tools and approvals (`Tool`, `ApprovalRequest`), voice input (`Composer`, `SpeechListener`), voice output (`Narrator`, `SpokenText`, `SpeechSpeaker`) and answer formatting (`AnswerBlock`), all but the panel in `AsideCore`.
 
 ## Conversation
 
@@ -49,13 +49,29 @@ The app runs the Claude Code CLI as a child process. There is no API key, and An
 
 - **Finding it.** GUI apps don't get the shell's PATH. `ClaudeLocator` (`AsideCore`) checks a configured path, then the common install locations, then asks the login shell.
 - **Process model (M1).** One long-lived process per conversation:
-  `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --model sonnet --setting-sources project --strict-mcp-config --tools WebSearch,WebFetch --allowedTools WebSearch,WebFetch --permission-prompts none`.
+  `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --model sonnet --setting-sources project --strict-mcp-config --tools WebSearch,WebFetch --allowedTools WebSearch,WebFetch --permission-prompts host --permission-prompt-tool stdio`. The tool flags come from `Tool.all` (see Tools).
   Each user message is one JSON line on stdin. Text arrives as `stream_event` lines with `content_block_delta` / `text_delta`, a `content_block_start` marks each new text block or tool use, and each turn ends with a `result` line. The process is started when the panel opens, so it is ready by the time the user has typed or spoken. When Aside quits, claude sees its stdin close and exits.
 - **Reading output.** `ClaudeProcess` reads pipes with `readabilityHandler`, because `FileHandle.bytes` holds a pipe's output back until its buffer fills, and splits lines on `\n` only. It ignores `SIGPIPE`, so writing to a claude that just died throws instead of killing Aside.
-- **Isolation.** The process runs in `<data>/workspace/`, where `<data>` is `~/Library/Application Support/Aside` (or `ASIDE_DATA_DIRECTORY` from the launch environment, which UI tests set). Aside rewrites the folder's `CLAUDE.md` each time claude starts; it sets the assistant's voice (short, speakable answers). `--setting-sources project` keeps the owner's own Claude Code settings, hooks, plugins and `~/.claude/CLAUDE.md` out (checked on 2026-10-15). `--strict-mcp-config` keeps their MCP servers out. `--tools WebSearch,WebFetch` makes those the only tools, `--allowedTools` approves them, and `--permission-prompts none` denies anything else that would ask.
+- **Isolation.** The process runs in `<data>/workspace/`, where `<data>` is `~/Library/Application Support/Aside` (or `ASIDE_DATA_DIRECTORY` from the launch environment, which UI tests set). Aside rewrites the folder's `CLAUDE.md` each time claude starts; it sets the assistant's voice (short, speakable answers). `--setting-sources project` keeps the owner's own Claude Code settings, hooks, plugins and `~/.claude/CLAUDE.md` out (checked on 2026-10-15). `--strict-mcp-config` keeps their MCP servers out. `--tools` makes `Tool.all` the only tools, and `--allowedTools` approves the ones that don't ask first.
 - **Configured path.** The `claudePath` user default, if set, is used instead of searching (`defaults write com.rigomart.aside claudePath /path/to/claude`). UI tests set it with a launch argument to point at `UITests/Support/fake-claude`.
-- **Permissions (M4).** With `--permission-prompts host` instead of `none`, tool permission requests come back to the app over the stream, so the panel can ask "Create this event?" instead of the request failing.
 - **Calendar (M4).** First try the owner's claude.ai Google Calendar connector. `--strict-mcp-config` may hide connectors; check this before choosing an MCP config.
+
+## Tools
+
+`Tool.all` (`AsideCore/Tool.swift`) is the one list of claude's tools. Each `Tool` has claude's name for it, the panel's activity line ("Searching the web…"), how the workspace `CLAUDE.md` names it, an optional line for that file on when to use it, and `asksFirst`. `ClaudeProcess.arguments` puts every tool in `--tools` and the ones that don't ask first in `--allowedTools`; `Workspace.instructions()` writes those lines and "Your only tools are …"; `Conversation` looks up the activity line. Today the list is web search and web fetch, and neither asks.
+
+A tool with `asksFirst` waits for the owner each time (decision 24). claude writes a `control_request` with subtype `can_use_tool` on stdout (tool name, input, and a short `description`, such as a file name) and waits. `ClaudeEvent` parses it into `.approvalRequested(ApprovalRequest)`, and `Conversation` keeps it on the newest exchange as `approval`, so the answer is still "responding": a question sent meanwhile is ignored, and the idle reset doesn't clear it. The answer card shows "Allow <tool>?", the description, and Deny and Allow buttons. No key answers it, so a Return meant for the field can't allow something. `AssistantSession.answerApproval(allow:)` writes a `control_response`: allow sends the input back unchanged as `updatedInput`; deny sends "The owner declined.", which claude sees as the tool's result and says so in its answer. Esc and clicking outside close the panel with the request still waiting; New conversation stops claude, and the request with it. Answers read aloud stop at the sentence before the tool; the request itself isn't read.
+
+`ClaudeProcess` answers any other `control_request` with an error ("Aside doesn't handle <kind> requests.") and logs it, so claude never waits on Aside for something the panel doesn't show.
+
+Checked with Claude Code 2.1.316 on 2026-11-03: `--permission-prompts host` alone denies tools that would ask ("you haven't granted it yet"); `--permission-prompt-tool stdio` is what sends the request to stdout. Allowing ran the tool, and denying stopped it.
+
+Adding a tool:
+
+1. Add it to `Tool.all`. A claude built-in (`Write`, `Read`) only needs its name. An MCP server also needs `--mcp-config` in `ClaudeProcess.arguments`, since `--strict-mcp-config` loads none of the owner's.
+2. Give it `asksFirst: true` if it changes anything outside Aside (an event, a note).
+3. When "Allow <tool>?" and the CLI's description don't say clearly what will happen, make the prompt from the tool's input (`ApprovalRequest.input`, JSON).
+4. Prove it with a UI test against the real claude (`launch()`), since the fake one ignores the flags, and copy `UITests/Tests/ApprovalTests.swift` for the panel.
 
 ## Build and signing
 

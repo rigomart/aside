@@ -23,6 +23,13 @@ extension XCUIApplication {
     /// "Thinking…" or what Claude is doing, while an answer is still coming.
     var activity: XCUIElement { panel.staticTexts["activity"] }
 
+    /// When claude wants to use a tool that asks first, "Allow <tool>?" and what it's about (such as a
+    /// file name), under the answer, with the Allow and Deny buttons.
+    var approval: XCUIElement { panel.staticTexts["approval"] }
+    var approvalDetail: XCUIElement { panel.staticTexts["approvalDetail"] }
+    var allowButton: XCUIElement { panel.buttons["allowButton"] }
+    var denyButton: XCUIElement { panel.buttons["denyButton"] }
+
     /// The button that starts a new conversation (Command-N), in the answer card's footer.
     var newConversationButton: XCUIElement { panel.buttons["newConversation"] }
 

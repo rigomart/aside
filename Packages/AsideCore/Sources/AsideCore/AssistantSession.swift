@@ -87,6 +87,18 @@ public final class AssistantSession {
         }
     }
 
+    /// Answers the tool use waiting for the owner. Claude then uses the tool, or is told the owner declined.
+    public func answerApproval(allow: Bool) {
+        guard let request = conversation.takeApproval(), let process else { return }
+        Log.claude.info("\(allow ? "Allowed" : "Denied", privacy: .public) \(request.tool, privacy: .public)")
+        do {
+            try process.answer(request, allow: allow)
+        } catch {
+            conversation.fail("Couldn't answer claude: \(error.localizedDescription)")
+            readAloud()
+        }
+    }
+
     /// Stops reading the answer aloud, mid-word. The answer keeps coming in the panel.
     public func stopReadingAloud() {
         narrator.stop()

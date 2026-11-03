@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import AsideCore
 
@@ -13,6 +14,23 @@ struct ConversationTests {
         #expect(!conversation.isResponding)
         #expect(conversation.exchanges.map(\.answer) == ["Hello."])
         #expect(conversation.exchanges[0].question == "Hi?")
+    }
+
+    @Test func holdsAnApprovalUntilTakenOrTheTurnEnds() {
+        let request = ApprovalRequest(id: "r1", tool: "Write", detail: "note.md", input: Data())
+        var conversation = Conversation()
+        conversation.ask("Note?")
+        conversation.apply(.toolStarted("Write"))
+        conversation.apply(.approvalRequested(request))
+        #expect(conversation.exchanges[0].approval == request)
+        #expect(conversation.exchanges[0].activity == "Using Write…")
+        #expect(conversation.takeApproval() == request)
+        #expect(conversation.exchanges[0].approval == nil)
+        #expect(conversation.takeApproval() == nil)
+
+        conversation.apply(.approvalRequested(request))
+        conversation.apply(.turnEnded(error: nil))
+        #expect(conversation.exchanges[0].approval == nil)
     }
 
     @Test func separatesTextBeforeAndAfterATool() {

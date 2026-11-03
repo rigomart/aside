@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import AsideCore
 
-/// Lines captured from Claude Code 2.1.300, trimmed of ids.
+/// Lines captured from Claude Code 2.1.300, trimmed of ids, unless a test says otherwise; the hook_callback line is made up.
 struct ClaudeEventTests {
     func parse(_ line: String) -> ClaudeEvent? {
         ClaudeEvent(json: Data(line.utf8))
@@ -32,6 +32,18 @@ struct ClaudeEventTests {
     @Test func errorSubtypeWithoutResultStillEndsTheTurn() {
         let line = #"{"type":"result","subtype":"error_during_execution","is_error":true,"errors":[{"message":"x"}]}"#
         #expect(parse(line) == .turnEnded(error: "error_during_execution"))
+    }
+
+    /// Captured from Claude Code 2.1.316 with `--permission-prompts host --permission-prompt-tool stdio`.
+    @Test func permissionRequest() throws {
+        let line = #"{"type":"control_request","request_id":"a57f1ebb","request":{"subtype":"can_use_tool","tool_name":"Write","display_name":"Write","input":{"file_path":"/tmp/hello.txt","content":"hi"},"description":"hello.txt","permission_suggestions":[{"type":"setMode","mode":"acceptEdits","destination":"session"}],"tool_use_id":"toolu_01X5"}}"#
+        let input = Data(#"{"content":"hi","file_path":"\/tmp\/hello.txt"}"#.utf8)
+        #expect(parse(line) == .approvalRequested(ApprovalRequest(id: "a57f1ebb", tool: "Write", detail: "hello.txt", input: input)))
+    }
+
+    @Test func otherControlRequestsAreUnsupported() {
+        #expect(parse(#"{"type":"control_request","request_id":"r1","request":{"subtype":"hook_callback","callback_id":"x"}}"#)
+            == .unsupportedRequest(id: "r1", kind: "hook_callback"))
     }
 
     @Test func ignoresWhatAsideDoesNotUse() {

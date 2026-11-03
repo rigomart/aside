@@ -49,7 +49,7 @@ The owner chose quality over speed on 2026-10-15; measured first-token latency i
 Chosen by the owner on 2026-10-15. Idle means no question or finished answer for 10 minutes; the check runs when the panel opens, so an open panel is never cleared under the owner. The New conversation button (Command-N) shows once there is a transcript.
 
 ## 14. Web search and web fetch are claude's only tools, set on the command line
-Quick lookups need the web, and nothing else is needed until calendar and notes (M4). `--tools`, `--allowedTools` and `--permission-prompts none` say this in one place, so the workspace holds only `CLAUDE.md` and no `.claude/settings.json`. Aside rewrites `CLAUDE.md` on every start so it always matches the app; to change the assistant's voice, change `Workspace.instructions`.
+The permission part is replaced by decision 24. Quick lookups need the web, and nothing else is needed until calendar and notes (M4). `--tools`, `--allowedTools` and `--permission-prompts none` say this in one place, so the workspace holds only `CLAUDE.md` and no `.claude/settings.json`. Aside rewrites `CLAUDE.md` on every start so it always matches the app; to change the assistant's voice, change `Workspace.instructions`.
 
 ## 15. If claude exits, the next question starts a new conversation
 The panel says so, and the next question starts a fresh process. Resuming with `--resume <session id>` would keep the context but adds code for something that hasn't happened outside tests. Revisit if the owner sees "claude stopped" in daily use.
@@ -77,3 +77,6 @@ Chosen by the owner on 2026-10-16, replacing decision 21's right edge, halfway d
 
 ## 23. Talking shows mirrored voice bars and a blue breathing edge
 Chosen by the owner on 2026-10-16, from mockups of three visualizers (scrolling bars, orb, mirrored bars), three glows (breathing, following the voice, a sweeping light) and four colors. It replaces the rainbow edge, since the owner wanted one color. While talking, a card above the field shows bars that rise from the middle outward with the microphone's loudness, and the field's edge slowly brightens and fades in blue (#4D8CFF). The words heard still go into the field. The level comes from the audio Aside already reads for recognition, so nothing is added.
+
+## 24. Tools come from one list; a tool that changes something waits for Allow in the panel
+Set up on 2026-11-03, before any such tool exists, so calendar, notes or anything else start from the same place. `Tool.all` gives claude's flags, the activity line and the workspace instructions. A tool marked `asksFirst` makes claude ask Aside (`--permission-prompts host --permission-prompt-tool stdio`), and the answer card shows "Allow <tool>?" with Deny and Allow; this is the open product decision's default, confirm first. Only the buttons answer, not Return or a spoken "yes", so a follow-up typed into the field can't allow something by accident. Web search and web fetch don't ask, so nothing the owner sees changes yet. Revisit the wording when the first tool that asks lands, and the whole flow if the owner picks "create and offer undo" instead.

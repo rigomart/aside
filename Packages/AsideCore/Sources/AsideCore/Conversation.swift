@@ -7,6 +7,8 @@ public struct Conversation: Equatable, Sendable {
         public var answer = ""
         /// What Claude is doing when it isn't writing, such as "Searching the web…".
         public var activity: String?
+        /// Cleared once the owner answers or the turn ends.
+        public var approval: ApprovalRequest?
         public var error: String?
         public var isFinished = false
     }
@@ -38,12 +40,23 @@ public struct Conversation: Equatable, Sendable {
             exchanges[last].answer += text
             exchanges[last].activity = nil
         case .toolStarted(let tool):
-            exchanges[last].activity = Self.activity(for: tool)
+            exchanges[last].activity = Tool.activity(for: tool)
+        case .approvalRequested(let request):
+            exchanges[last].approval = request
+        case .unsupportedRequest:
+            break
         case .turnEnded(let error):
             exchanges[last].error = error
             exchanges[last].activity = nil
+            exchanges[last].approval = nil
             exchanges[last].isFinished = true
         }
+    }
+
+    mutating func takeApproval() -> ApprovalRequest? {
+        guard let last = exchanges.indices.last else { return nil }
+        defer { exchanges[last].approval = nil }
+        return exchanges[last].approval
     }
 
     /// Ends the current answer with `message`, or adds it on its own line if nothing is being answered.
@@ -52,13 +65,5 @@ public struct Conversation: Equatable, Sendable {
             exchanges.append(Exchange(id: exchanges.count))
         }
         apply(.turnEnded(error: message))
-    }
-
-    static func activity(for tool: String) -> String {
-        switch tool {
-        case "WebSearch": "Searching the web…"
-        case "WebFetch": "Reading a web page…"
-        default: "Using \(tool)…"
-        }
     }
 }
