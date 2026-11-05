@@ -67,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: "Aside")
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Aside", action: #selector(showPanel), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Open Memory", action: #selector(openMemory), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Aside", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
@@ -90,5 +91,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showPanel() {
         panel.show()
+    }
+
+    /// Opens MEMORY.md, created if Aside hasn't saved anything yet, so the owner can read and edit what
+    /// Aside remembers. In TextEdit rather than the default app for .md files, which may be Xcode.
+    @objc private func openMemory() {
+        guard let textEdit = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit") else {
+            return showMemoryProblem("TextEdit isn't installed.")
+        }
+        Task {
+            do {
+                let file = try Memory.load(in: Self.dataDirectory).file
+                _ = try await NSWorkspace.shared.open([file], withApplicationAt: textEdit, configuration: NSWorkspace.OpenConfiguration())
+            } catch {
+                showMemoryProblem(error.localizedDescription)
+            }
+        }
+    }
+
+    private func showMemoryProblem(_ message: String) {
+        Log.app.error("Couldn't open memory: \(message, privacy: .public)")
+        let alert = NSAlert()
+        alert.messageText = "Couldn't open memory"
+        alert.informativeText = message
+        NSApp.activate()
+        alert.runModal()
     }
 }

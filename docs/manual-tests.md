@@ -61,7 +61,7 @@ UI tests prove where the panel opens, that the field stays put while the answer 
 UI tests against the real claude prove that "Remember this: …" shows "Remembered: …" in the panel and adds a line to `MEMORY.md`, that a new conversation knows the fact, that "Forget …" shows "Forgot: …" and removes the line, that a fact said in passing is saved unasked, and that writing a file outside the memory folder waits for Allow. These steps cover sound, your own data and editing by hand.
 
 1. Press Control-Option-Shift-Space and say "Remember that my dentist is Dr. Rivera." Send it: the panel shows "Remembered: …", and Aside doesn't read that line aloud.
-2. In Finder, press Command-Shift-G and go to `~/Library/Application Support/Aside/memory/`. Open `MEMORY.md` in TextEdit: the dentist is on its own line. Add a line such as `- You prefer Celsius.`, save, and close it.
+2. Click the speech-bubble icon in the menu bar and choose Open Memory: `MEMORY.md` opens in TextEdit, and the dentist is on its own line. Add a line such as `- You prefer Celsius.`, save, and close it.
 3. Back in Aside, press Command-N and ask "What units do I prefer for temperature?": the answer says Celsius.
 4. Ask "Forget my dentist.": the panel shows "Forgot: …", and the line is gone from `MEMORY.md`.
 5. Open `~/.claude/projects/` in Finder. The folder whose name ends in `Aside-workspace` has no `memory` folder: Aside leaves Claude Code's own memory alone.

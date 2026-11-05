@@ -103,4 +103,7 @@ Asked for by the owner on 2026-11-04. Aside remembers lasting facts about the ow
 - **Writes only in the memory folder.** `Read`, `Edit` and `Write` are allowed without asking only under the folder (`--allowedTools "Edit(//<folder>/**)"`: a rule path starting with `//` is absolute; a single `/`, or `Read(/abs/path/**)`, didn't match). Anywhere else they go through the Allow and Deny buttons of decision 24 rather than being refused, so the owner sees the path and decides. Checked with Claude Code 2.1.318, including a folder with a space in its name.
 - **Shown, not said.** Aside compares the file's facts before and after each tool use and shows "Remembered: <fact>" or "Forgot: <fact>" under the answer. These lines are not read aloud. They come from the file, not from what claude says it did, so a failed write shows nothing. claude doesn't mention a fact it saved unasked.
 
-An "Open Memory" menu bar item is parked for later.
+The menu bar item's Open Memory opens the file (decision 27).
+
+## 27. Open Memory in the menu bar opens MEMORY.md in TextEdit
+Asked for by the owner on 2026-11-04. The menu bar item's menu has Open Memory, under Show Aside. It creates the file if Aside hasn't saved anything yet, then opens it in TextEdit, so the owner can read what Aside remembers and edit it. It uses TextEdit, not the Mac's default app for `.md` files, because on this Mac that default is Xcode. If the file can't be created or TextEdit can't open it, an alert says why. Revisit if the owner wants their own Markdown editor.
