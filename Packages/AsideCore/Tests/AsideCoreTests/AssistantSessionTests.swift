@@ -165,8 +165,68 @@ struct AssistantSessionTests {
         session.send("hello")
         await settle(session)
         let instructions = try String(contentsOf: fake.directory.appending(path: "data/workspace/CLAUDE.md"), encoding: .utf8)
-        #expect(instructions == Workspace.instructions())
+        let memory = fake.directory.appending(path: "data/memory/MEMORY.md")
+        #expect(instructions == Workspace.instructions(memory: memory))
         #expect(instructions.contains("- Search the web for anything current: news, prices, schedules, versions, opening hours.\n"))
-        #expect(instructions.contains("- You can't see their screen or files. Your only tools are web search and reading web pages.\n"))
+        #expect(instructions.contains("- Your memory file is \(memory.path): one fact per line"))
+        #expect(instructions.contains("- You can't see their screen or files. Your only tools are web search, reading web pages, "
+            + "and your memory file. Use the file tools only on your memory file.\n"))
+    }
+
+    @Test func savesAndRemovalsShowAndAreNotRead() async throws {
+        let session = session(claude: try fake.write())
+        session.send("remember tea", aloud: true)
+        await settle(session)
+        session.send("remember cats")
+        await settle(session)
+        session.send("forget both")
+        await settle(session)
+        #expect(session.conversation.exchanges.map(\.memoryNotes)
+            == [["Remembered: remember tea"], ["Remembered: remember cats"], ["Forgot: remember tea", "Forgot: remember cats"]])
+        #expect(speaker.sentences == ["Answer 1: remember tea"])
+        let file = try String(contentsOf: fake.directory.appending(path: "data/memory/MEMORY.md"), encoding: .utf8)
+        #expect(file == Memory.header)
+    }
+
+    @Test func aMemoryThatCantBeReadShowsAndRecovers() async throws {
+        let session = session(claude: try fake.write())
+        session.send("hello")
+        await settle(session)
+        let file = fake.directory.appending(path: "data/memory/MEMORY.md").path
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file)
+        session.send("again")
+        await settle(session)
+        #expect(session.conversation.exchanges[1].memoryNotes.count == 1)
+        #expect(session.conversation.exchanges[1].memoryNotes.first?.hasPrefix("Couldn't read memory: ") == true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file)
+        session.send("remember tea")
+        await settle(session)
+        #expect(session.conversation.exchanges[2].memoryNotes == ["Remembered: remember tea"])
+    }
+
+    @Test func aSaveJustBeforeClaudeExitsShows() async throws {
+        let session = session(claude: try fake.write("""
+            #!/bin/bash
+            read -r line
+            echo "- You like tea." >> ../memory/MEMORY.md
+            exit 3
+            """))
+        session.send("hello")
+        await settle(session)
+        #expect(session.conversation.exchanges[0].memoryNotes == ["Remembered: You like tea."])
+        #expect(session.conversation.exchanges[0].error?.hasPrefix("claude stopped (exit status 3)") == true)
+    }
+
+    @Test func aNewClaudeStartsWithWhatWasSaved() async throws {
+        let session = session(claude: try fake.write())
+        session.send("recall")
+        await settle(session)
+        session.send("remember tea")
+        await settle(session)
+        session.startNewConversation()
+        session.send("recall")
+        await settle(session)
+        #expect(answers(session) == ["Answer 1: Knows a fact."])
+        #expect(session.conversation.exchanges[0].memoryNotes.isEmpty)
     }
 }

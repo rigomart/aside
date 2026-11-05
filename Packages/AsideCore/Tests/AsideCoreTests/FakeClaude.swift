@@ -8,7 +8,10 @@ struct FakeClaude {
     /// A message containing "boom" makes it write to stderr and exit with status 3. One containing
     /// "approve" asks to write note.md and answers "Allowed: wrote note.md." or "Denied: The owner declined."
     /// with what Aside replied; one containing "unhandled" sends a request Aside doesn't handle and answers
-    /// "Refused." if Aside refused it.
+    /// "Refused." if Aside refused it. One starting with "remember" adds it as a fact to `../memory/MEMORY.md`,
+    /// one containing "forget" removes the facts starting with "remember", and one containing "recall" answers
+    /// "Knows a fact." if claude was started with one, else "Knows nothing.". One containing "autoMemory"
+    /// answers with `CLAUDE_CODE_DISABLE_AUTO_MEMORY`.
     static let answering = #"""
         #!/bin/bash
         n=0
@@ -31,6 +34,16 @@ struct FakeClaude {
             IFS= read -r reply
             case "$reply" in *'"error":"Aside doesn'"'"'t handle hook_callback requests."'*"\"request_id\":\"req-$n\""*'"subtype":"error"'*) content='"Refused."';; *) content='"Unexpected reply."';; esac;;
           esac
+          case "$line" in *'"content":"remember'*)
+            echo '{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","name":"Edit","input":{}}}}'
+            echo "- ${content:1:${#content}-2}" >> ../memory/MEMORY.md;;
+          esac
+          case "$line" in *forget*)
+            echo '{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","name":"Edit","input":{}}}}'
+            sed -i '' '/^- remember/d' ../memory/MEMORY.md;;
+          esac
+          case "$line" in *recall*) case "$*" in *"- remember"*) content='"Knows a fact."';; *) content='"Knows nothing."';; esac;; esac
+          case "$line" in *autoMemory*) content="\"$CLAUDE_CODE_DISABLE_AUTO_MEMORY\"";; esac
           echo '{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}}'
           echo "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Answer $n: \"}}}"
           echo "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":$content}}}"

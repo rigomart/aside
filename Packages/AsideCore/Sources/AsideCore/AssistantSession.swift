@@ -25,6 +25,7 @@ public final class AssistantSession {
     /// The current conversation's process. Nil before it starts and after it exits.
     @ObservationIgnored private var process: ClaudeProcess?
     @ObservationIgnored private var lastActivity: Date?
+    @ObservationIgnored private var memoryAtLastCheck: Memory?
 
     /// - Parameters:
     ///   - dataDirectory: Where the workspace goes.
@@ -77,6 +78,7 @@ public final class AssistantSession {
         let id = conversation.ask(question)
         if aloud { narrator.start(id) } else { narrator.stop() }
         lastActivity = now()
+        memoryAtLastCheck = readMemory() ?? memoryAtLastCheck
         Task {
             do {
                 try await connect().send(question)
@@ -133,8 +135,11 @@ public final class AssistantSession {
         if let process { return process }
         let process: ClaudeProcess
         do {
-            let workspace = try Workspace.prepare(in: dataDirectory)
-            process = try ClaudeProcess(executable: path, arguments: ClaudeProcess.arguments(model: model), directory: workspace)
+            let memory = try Memory.load(in: dataDirectory)
+            let workspace = try Workspace.prepare(in: dataDirectory, memory: memory)
+            process = try ClaudeProcess(
+                executable: path, arguments: ClaudeProcess.arguments(model: model, memory: memory), directory: workspace
+            )
         } catch {
             throw SessionError("Couldn't start claude: \(error.localizedDescription)")
         }
@@ -148,6 +153,7 @@ public final class AssistantSession {
         for await output in process.outputs {
             // A process stopped for a new conversation no longer speaks for the panel.
             guard process === self.process else { return }
+            if !output.isAnswerText { noteMemoryChanges() }
             switch output {
             case .event(let event):
                 conversation.apply(event)
@@ -167,9 +173,33 @@ public final class AssistantSession {
         }
     }
 
+    /// Shows what claude saved to or removed from memory since the last check.
+    private func noteMemoryChanges() {
+        guard let current = readMemory() else { return }
+        if let earlier = memoryAtLastCheck { conversation.noteMemory(current.changes(since: earlier)) }
+        memoryAtLastCheck = current
+    }
+
+    /// The memory file now, or nil after the panel says why it couldn't be read.
+    private func readMemory() -> Memory? {
+        do {
+            return try Memory.load(in: dataDirectory)
+        } catch {
+            Log.claude.error("Couldn't read memory: \(error.localizedDescription, privacy: .public)")
+            conversation.noteMemory(["Couldn't read memory: \(error.localizedDescription)"])
+            return nil
+        }
+    }
+
     /// Hands the newest answer to the narrator, which reads it if it was asked aloud.
     private func readAloud() {
         if let last = conversation.exchanges.last { narrator.follow(last) }
+    }
+}
+
+private extension ClaudeProcess.Output {
+    var isAnswerText: Bool {
+        if case .event(.text) = self { true } else { false }
     }
 }
 
