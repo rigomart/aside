@@ -11,9 +11,12 @@ public final class ClaudeProcess: Sendable {
 
     /// Flags for a conversation in Aside's workspace. Only the workspace's own settings and CLAUDE.md load,
     /// none of the owner's MCP servers, and only `tools` exist. Tools that don't ask first are allowed
-    /// up front; claude asks Aside on stdout before using any other, and waits for `answer`.
-    public static func arguments(model: String, tools: [Tool] = Tool.all) -> [String] {
+    /// up front, and so are the `allowedInMemory` tools inside `memory.directory`; claude asks Aside on stdout before
+    /// using any other, and waits for `answer`. `memory` goes in the system prompt.
+    public static func arguments(model: String, memory: Memory, tools: [Tool] = Tool.all) -> [String] {
+        // A rule's path starts with "//" when it's absolute; a single "/" would be relative to the settings file.
         let allowed = tools.filter { !$0.asksFirst }.map(\.name)
+            + tools.filter(\.allowedInMemory).map { "\($0.name)(/\(memory.directory.path)/**)" }
         return [
             "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--include-partial-messages", "--model", model,
@@ -21,8 +24,13 @@ public final class ClaudeProcess: Sendable {
             "--tools", tools.map(\.name).joined(separator: ","),
         ] + (allowed.isEmpty ? [] : ["--allowedTools", allowed.joined(separator: ",")]) + [
             "--permission-prompts", "host", "--permission-prompt-tool", "stdio",
+            "--append-system-prompt", memory.prompt,
         ]
     }
+
+    /// Added to Aside's own environment for claude. Claude Code's auto memory is off: Aside keeps its own
+    /// (`Memory`), and the owner's Claude Code memory stays untouched.
+    static let environment = ["CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"]
 
     /// One user message as a line of stream-json input.
     public static func inputLine(_ text: String) -> Data {
@@ -59,6 +67,7 @@ public final class ClaudeProcess: Sendable {
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
         process.currentDirectoryURL = directory
+        process.environment = ProcessInfo.processInfo.environment.merging(Self.environment) { $1 }
         let stdin = Pipe(), stdout = Pipe(), stderr = Pipe()
         process.standardInput = stdin
         process.standardOutput = stdout

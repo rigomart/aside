@@ -10,21 +10,49 @@ struct ClaudeProcessTests {
         #expect(line == #"{"message":{"content":"Say \"hi\" / bye","role":"user"},"type":"user"}"# + "\n")
     }
 
+    let memory = Memory(directory: URL(filePath: "/data/App Support/memory/"), text: "# Memory\n\n- Likes tea.\n")
+
     @Test func argumentsKeepTheOwnersSetupOut() {
-        let arguments = ClaudeProcess.arguments(model: "sonnet").joined(separator: " ")
+        let arguments = ClaudeProcess.arguments(model: "sonnet", memory: memory).joined(separator: " ")
         #expect(arguments.contains("--setting-sources project"))
         #expect(arguments.contains("--strict-mcp-config"))
-        #expect(arguments.contains("--tools WebSearch,WebFetch --allowedTools WebSearch,WebFetch"))
         #expect(arguments.contains("--permission-prompts host --permission-prompt-tool stdio"))
         #expect(arguments.contains("--model sonnet"))
     }
 
+    @Test func fileToolsAreAllowedOnlyInTheMemoryFolder() {
+        let arguments = ClaudeProcess.arguments(model: "sonnet", memory: memory)
+        #expect(arguments.joined(separator: " ").contains("--tools WebSearch,WebFetch,Read,Edit,Write --allowedTools "))
+        #expect(arguments[arguments.firstIndex(of: "--allowedTools")! + 1] == "WebSearch,WebFetch,"
+            + "Read(//data/App Support/memory/**),Edit(//data/App Support/memory/**),Write(//data/App Support/memory/**)")
+    }
+
+    @Test func memoryIsInTheSystemPrompt() {
+        let arguments = ClaudeProcess.arguments(model: "sonnet", memory: memory)
+        #expect(arguments[arguments.firstIndex(of: "--append-system-prompt")! + 1] == """
+            # What you remember about the owner
+
+            From /data/App Support/memory/MEMORY.md, when this conversation started:
+
+            - Likes tea.
+            """)
+    }
+
     @Test func toolsThatAskFirstAreNotAllowedUpFront() {
         let write = Tool(name: "Write", activity: "Writing…", nameInInstructions: "writing files", whenToUse: nil, asksFirst: true)
-        let arguments = ClaudeProcess.arguments(model: "sonnet", tools: [.webSearch, write]).joined(separator: " ")
+        let arguments = ClaudeProcess.arguments(model: "sonnet", memory: memory, tools: [.webSearch, write]).joined(separator: " ")
         #expect(arguments.contains("--tools WebSearch,Write --allowedTools WebSearch --permission-prompts"))
-        let onlyAsking = ClaudeProcess.arguments(model: "sonnet", tools: [write])
+        let onlyAsking = ClaudeProcess.arguments(model: "sonnet", memory: memory, tools: [write])
         #expect(!onlyAsking.contains("--allowedTools"))
+    }
+
+    @Test func claudeCodesAutoMemoryIsOff() async throws {
+        let process = try ClaudeProcess(executable: try fake.write(), arguments: [], directory: fake.directory)
+        var outputs = process.outputs.makeAsyncIterator()
+        try process.send("autoMemory")
+        _ = await outputs.next()
+        _ = await outputs.next()
+        #expect(await outputs.next() == .event(.text("1")))
     }
 
     @Test func answerLinesRepeatTheRequest() {

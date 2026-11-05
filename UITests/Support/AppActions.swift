@@ -23,6 +23,9 @@ extension XCUIApplication {
     /// "Thinking…" or what Claude is doing, while an answer is still coming.
     var activity: XCUIElement { panel.staticTexts["activity"] }
 
+    /// Notes under the answer: "Remembered: <fact>", "Forgot: <fact>" or "Couldn't read memory: …" (read `.value`).
+    var memoryNotes: XCUIElementQuery { panel.staticTexts.matching(identifier: "memoryNote") }
+
     /// When claude wants to use a tool that asks first, "Allow <tool>?" and what it's about (such as a
     /// file name), under the answer, with the Allow and Deny buttons.
     var approval: XCUIElement { panel.staticTexts["approval"] }

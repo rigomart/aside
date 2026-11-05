@@ -11,6 +11,8 @@ public struct Conversation: Equatable, Sendable {
         public var approval: ApprovalRequest?
         public var error: String?
         public var isFinished = false
+        /// Memory notes while answering: "Remembered: …", "Forgot: …", or "Couldn't read memory: …".
+        public var memoryNotes: [String] = []
     }
 
     public private(set) var exchanges: [Exchange] = []
@@ -57,6 +59,12 @@ public struct Conversation: Equatable, Sendable {
         guard let last = exchanges.indices.last else { return nil }
         defer { exchanges[last].approval = nil }
         return exchanges[last].approval
+    }
+
+    /// Adds `notes` about memory to the newest exchange, leaving out any it already has.
+    mutating func noteMemory(_ notes: [String]) {
+        guard let last = exchanges.indices.last else { return }
+        exchanges[last].memoryNotes += notes.filter { !exchanges[last].memoryNotes.contains($0) }
     }
 
     /// Ends the current answer with `message`, or adds it on its own line if nothing is being answered.

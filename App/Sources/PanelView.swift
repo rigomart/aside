@@ -194,6 +194,14 @@ private struct AnswerCard: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("answer")
             }
+            ForEach(exchange.memoryNotes.indices, id: \.self) { index in
+                Label(exchange.memoryNotes[index], systemImage: "brain")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("memoryNote")
+            }
             if let approval = exchange.approval {
                 ApprovalPrompt(request: approval, answer: answerApproval)
             } else if !exchange.isFinished, exchange.activity != nil || exchange.answer.isEmpty {
