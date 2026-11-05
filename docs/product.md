@@ -25,6 +25,7 @@ The Claude desktop app's quick entry opens the full app. ChatGPT's Option-Space 
 | 2 | Voice input: talk hotkey, live transcript in the field, the second press sends | Done, pending the owner's manual checks |
 | 3 | Voice output: sentence by sentence, skips markdown and code, interruptible | Done, pending the owner's manual checks |
 | 3.5 | New look: voice-first glass pill in the bottom-right corner, voice bars while talking, captions while reading (decisions 21–23) | Done, pending the owner's manual checks |
+| 3.6 | One conversation until New, compacted in the background, and Aside's own memory with Open Memory in the menu bar (decisions 25–27) | Done, pending the owner's manual checks |
 | 4 | Tools: calendar read and create with confirmation in the panel, notes | Next. The groundwork is done: one tool list, and Allow and Deny in the panel (decision 24) |
 | 5 | Polish: settings, launch at login | |
 
