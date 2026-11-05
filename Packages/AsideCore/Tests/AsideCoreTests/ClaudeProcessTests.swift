@@ -18,6 +18,7 @@ struct ClaudeProcessTests {
         #expect(arguments.contains("--strict-mcp-config"))
         #expect(arguments.contains("--permission-prompts host --permission-prompt-tool stdio"))
         #expect(arguments.contains("--model sonnet"))
+        #expect(arguments.contains("--autocompact 150000"))
     }
 
     @Test func fileToolsAreAllowedOnlyInTheMemoryFolder() {
@@ -50,9 +51,9 @@ struct ClaudeProcessTests {
         let process = try ClaudeProcess(executable: try fake.write(), arguments: [], directory: fake.directory)
         var outputs = process.outputs.makeAsyncIterator()
         try process.send("autoMemory")
-        _ = await outputs.next()
-        _ = await outputs.next()
-        #expect(await outputs.next() == .event(.text("1")))
+        _ = await nextAnswerOutput(&outputs)
+        _ = await nextAnswerOutput(&outputs)
+        #expect(await nextAnswerOutput(&outputs) == .event(.text("1")))
     }
 
     @Test func answerLinesRepeatTheRequest() {
@@ -63,26 +64,37 @@ struct ClaudeProcessTests {
             == #"{"response":{"request_id":"r1","response":{"behavior":"deny","message":"The owner declined."},"subtype":"success"},"type":"control_response"}"# + "\n")
     }
 
+    /// The next output that isn't a turn's session or context size, which the fake reports before each answer.
+    func nextAnswerOutput(_ outputs: inout AsyncStream<ClaudeProcess.Output>.Iterator) async -> ClaudeProcess.Output? {
+        while let output = await outputs.next() {
+            switch output {
+            case .event(.sessionStarted), .event(.contextUsed): continue
+            default: return output
+            }
+        }
+        return nil
+    }
+
     @Test func refusesRequestsAsideDoesNotHandle() async throws {
         let process = try ClaudeProcess(executable: try fake.write(), arguments: [], directory: fake.directory)
         var outputs = process.outputs.makeAsyncIterator()
         try process.send("unhandled")
-        #expect(await outputs.next() == .event(.textStarted))
-        #expect(await outputs.next() == .event(.text("Answer 1: ")))
-        #expect(await outputs.next() == .event(.text("Refused.")))
+        #expect(await nextAnswerOutput(&outputs) == .event(.textStarted))
+        #expect(await nextAnswerOutput(&outputs) == .event(.text("Answer 1: ")))
+        #expect(await nextAnswerOutput(&outputs) == .event(.text("Refused.")))
     }
 
     @Test func answersEachMessageInOneProcess() async throws {
         let process = try ClaudeProcess(executable: try fake.write(), arguments: [], directory: fake.directory)
         var outputs = process.outputs.makeAsyncIterator()
         try process.send("one")
-        #expect(await outputs.next() == .event(.textStarted))
-        #expect(await outputs.next() == .event(.text("Answer 1: ")))
-        #expect(await outputs.next() == .event(.text("one")))
-        #expect(await outputs.next() == .event(.turnEnded(error: nil)))
+        #expect(await nextAnswerOutput(&outputs) == .event(.textStarted))
+        #expect(await nextAnswerOutput(&outputs) == .event(.text("Answer 1: ")))
+        #expect(await nextAnswerOutput(&outputs) == .event(.text("one")))
+        #expect(await nextAnswerOutput(&outputs) == .event(.turnEnded(error: nil)))
         try process.send("two")
-        #expect(await outputs.next() == .event(.textStarted))
-        #expect(await outputs.next() == .event(.text("Answer 2: ")))
+        #expect(await nextAnswerOutput(&outputs) == .event(.textStarted))
+        #expect(await nextAnswerOutput(&outputs) == .event(.text("Answer 2: ")))
     }
 
     @Test func endsWithExitStatusAndStderr() async throws {

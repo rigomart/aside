@@ -16,7 +16,7 @@ Checks no automated test can reach: the real microphone, how something looks or 
 
 ## Text loop (M1)
 
-UI tests prove asking, follow-ups, web search, Esc mid-answer, Command-V and Command-N; the idle reset is unit-tested.
+UI tests prove asking, follow-ups, web search, Esc mid-answer, Command-V and Command-N.
 
 1. Ask for something long: the answer appears a few words at a time, at a pace that reads comfortably.
 2. Select part of an answer with the mouse, press Command-C, and paste it into another app.
@@ -65,3 +65,12 @@ UI tests against the real claude prove that "Remember this: …" shows "Remember
 3. Back in Aside, press Command-N and ask "What units do I prefer for temperature?": the answer says Celsius.
 4. Ask "Forget my dentist.": the panel shows "Forgot: …", and the line is gone from `MEMORY.md`.
 5. Open `~/.claude/projects/` in Finder. The folder whose name ends in `Aside-workspace` has no `memory` folder: Aside leaves Claude Code's own memory alone.
+
+## One conversation until New
+
+UI tests against the real claude prove that the conversation survives quitting and reopening Aside, that New forgets it, and that a compacted copy takes over in the background and still knows what it was told. They compact a tiny conversation; these steps cover a real one.
+
+1. Ask Aside "Pick a random number between 1 and 1000 and tell me." Quit Aside from its menu bar icon and reopen it. Open the panel: it says "Continuing your conversation" with New. Ask "What number did you pick?": it gives the same number.
+2. Restart the Mac, open the panel and ask again: it still gives the same number.
+3. Press New, then ask "What number did you pick?": it doesn't know. (A fact about you saved to memory would still be known; that's decision 26, not this.)
+4. Have a long conversation over a day or two: paste long texts, ask for pages to be read. Every answer should start about as fast as at the beginning; the panel never says "Condensing the conversation…" (if it does, tell the agent). Afterwards, ask about something from early in the conversation: it should remember the gist.

@@ -7,14 +7,28 @@ struct AssistantSessionTests {
     let fake = FakeClaude()
     let speaker = FakeSpeaker()
 
-    func session(claude: String?, now: @escaping () -> Date = Date.init) -> AssistantSession {
-        AssistantSession(
-            dataDirectory: fake.directory.appending(path: "data"),
-            claudePath: claude ?? "/missing/claude",
-            speaker: speaker,
-            idleLimit: 600,
-            now: now
-        )
+    var dataDirectory: URL { fake.directory.appending(path: "data") }
+
+    func session(claude: String?) -> AssistantSession {
+        AssistantSession(dataDirectory: dataDirectory, claudePath: claude ?? "/missing/claude", speaker: speaker, compactAt: 80_000)
+    }
+
+    var saved: String? {
+        (try? String(contentsOf: dataDirectory.appending(path: "session-id"), encoding: .utf8))?.trimmingCharacters(in: .newlines)
+    }
+
+    /// What the fake claude holds for `session`: each question's input line, or "summary" once compacted.
+    func transcript(_ session: String?) -> String {
+        (try? String(contentsOf: dataDirectory.appending(path: "workspace/.sessions/\(session ?? "")"), encoding: .utf8)) ?? ""
+    }
+
+    /// Waits up to 5 s for `condition`.
+    func eventually(_ condition: () -> Bool) async {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !condition() {
+            guard ContinuousClock.now < deadline else { Issue.record("Still waiting after 5 s"); return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     func answers(_ session: AssistantSession) -> [String] {
@@ -48,26 +62,61 @@ struct AssistantSessionTests {
         #expect(answers(session) == ["Answer 1: hello"])
     }
 
-    @Test func newConversationStartsAFreshProcess() async throws {
+    @Test func newConversationStartsAFreshProcessAndForgetsTheSession() async throws {
         let session = session(claude: try fake.write())
         session.send("hello")
         await settle(session)
+        let first = try #require(saved)
+        #expect(session.sessionID == first)
         session.startNewConversation()
         #expect(session.conversation.isEmpty)
+        #expect(session.sessionID == nil)
+        #expect(saved == nil)
         session.send("fresh")
         await settle(session)
         #expect(answers(session) == ["Answer 1: fresh"])
+        #expect(saved != nil && saved != first)
     }
 
-    @Test func claudeStoppingShowsAndTheNextQuestionStartsOver() async throws {
+    @Test func theConversationOutlastsARelaunch() async throws {
+        let claude = try fake.write()
+        let before = session(claude: claude)
+        before.send("hello")
+        await settle(before)
+
+        let after = session(claude: claude)
+        #expect(after.sessionID == saved)
+        #expect(after.conversation.isEmpty)
+        after.send("again")
+        await settle(after)
+        #expect(answers(after) == ["Answer 2: again"])
+    }
+
+    @Test func claudeStoppingShowsAndTheNextQuestionContinues() async throws {
         let session = session(claude: try fake.write())
+        session.send("hello")
+        await settle(session)
         session.send("boom")
         await settle(session)
-        #expect(session.conversation.exchanges[0].error
-            == "claude stopped (exit status 3): something broke. Your next question starts a new conversation.")
+        #expect(session.conversation.exchanges[1].error
+            == "claude stopped (exit status 3): something broke. Your next question continues the conversation.")
         session.send("after")
         await settle(session)
-        #expect(session.conversation.exchanges[1].answer == "Answer 1: after")
+        #expect(session.conversation.exchanges[2].answer == "Answer 3: after")
+    }
+
+    @Test func aSessionThatCantBeResumedIsForgotten() async throws {
+        try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+        try "11111111-2222-3333-4444-555555555555\n".write(to: dataDirectory.appending(path: "session-id"), atomically: true, encoding: .utf8)
+        let session = session(claude: try fake.write())
+        session.prepare()
+        await eventually { session.conversation.exchanges.last?.error != nil }
+        #expect(session.conversation.exchanges.last?.error == "Couldn't continue the conversation (exit status 1): "
+            + "No conversation found with session ID: 11111111-2222-3333-4444-555555555555. Your next question starts a new conversation.")
+        #expect(saved == nil)
+        session.send("hello")
+        await settle(session)
+        #expect(answers(session).last == "Answer 1: hello")
     }
 
     @Test func missingClaudeShowsWhenAsking() async {
@@ -79,22 +128,74 @@ struct AssistantSessionTests {
         #expect(session.conversation.exchanges.map(\.error) == [AssistantSession.missingMessage])
     }
 
-    @Test func openingAfterTheIdleLimitStartsANewConversation() async throws {
-        var time = Date(timeIntervalSince1970: 0)
-        let session = session(claude: try fake.write(), now: { time })
-        session.send("hello")
+    @Test func aBigConversationIsCompactedAndTheCopyTakesOver() async throws {
+        let session = session(claude: try fake.write())
+        session.send("small")
         await settle(session)
-
-        time += 599
-        session.prepare()
-        #expect(answers(session) == ["Answer 1: hello"])
-
-        time += 2
-        session.prepare()
-        #expect(session.conversation.isEmpty)
-        session.send("later")
+        let original = try #require(saved)
+        session.send("big")
         await settle(session)
-        #expect(answers(session) == ["Answer 1: later"])
+        #expect(saved == original, "Still answering from the original while the copy compacts")
+
+        await eventually { saved != original }
+        let compacted = try #require(saved)
+        #expect(transcript(compacted) == "summary: small big \n")
+        session.send("next")
+        await settle(session)
+        #expect(answers(session).last == "Answer 2: next", "The summary and this question")
+        #expect(transcript(compacted).contains("next"), "The copy answered")
+        #expect(!transcript(original).contains("next"))
+    }
+
+    @Test func theCompactedCopyStartsWithMemorySavedBeforeTheFork() async throws {
+        let session = session(claude: try fake.write())
+        session.send("remember tea")
+        await settle(session)
+        let original = try #require(saved)
+        session.send("big")
+        await settle(session)
+        await eventually { saved != original }
+        session.send("recall")
+        await settle(session)
+        // The original claude started before the fact was saved, so only the copy knows it.
+        #expect(answers(session).last == "Answer 2: Knows a fact.")
+    }
+
+    @Test func aQuestionDuringCompactionDropsTheCopyAndItRetries() async throws {
+        let session = session(claude: try fake.write())
+        session.send("big")
+        await settle(session)
+        let original = try #require(saved)
+        session.send("quick")
+        await settle(session)
+        #expect(answers(session) == ["Answer 1: big", "Answer 2: quick"])
+        #expect(saved == original)
+
+        // That turn ended past the limit too, so a new copy compacts and takes over. The first copy,
+        // forked before "quick", would have summarized only "big".
+        await eventually { saved != original }
+        #expect(transcript(saved) == "summary: big quick \n")
+    }
+
+    @Test func newDropsAQuestionStillWaitingForClaude() async throws {
+        let session = session(claude: try fake.write())
+        session.send("old")
+        session.startNewConversation()
+        session.send("fresh")
+        await settle(session)
+        #expect(answers(session) == ["Answer 1: fresh"])
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(answers(session) == ["Answer 1: fresh"])
+        #expect(!transcript(saved).contains("old"))
+    }
+
+    @Test func newConversationDropsACompaction() async throws {
+        let session = session(claude: try fake.write())
+        session.send("big")
+        await settle(session)
+        session.startNewConversation()
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(saved == nil, "The copy finished after New and must not take over")
     }
 
     @Test func onlyAnswersAskedAloudAreRead() async throws {

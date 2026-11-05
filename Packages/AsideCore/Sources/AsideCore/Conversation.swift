@@ -45,7 +45,11 @@ public struct Conversation: Equatable, Sendable {
             exchanges[last].activity = Tool.activity(for: tool)
         case .approvalRequested(let request):
             exchanges[last].approval = request
-        case .unsupportedRequest:
+        case .compacting:
+            exchanges[last].activity = "Condensing the conversation…"
+        case .compacted:
+            exchanges[last].activity = nil
+        case .unsupportedRequest, .sessionStarted, .contextUsed:
             break
         case .turnEnded(let error):
             exchanges[last].error = error

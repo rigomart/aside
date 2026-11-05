@@ -28,6 +28,8 @@ struct PanelView: View {
                         answerApproval: { session.answerApproval(allow: $0) },
                         startNewConversation: session.startNewConversation
                     )
+                } else if session.sessionID != nil {
+                    continuingCard
                 }
                 if composer.voice != .off {
                     voiceCard
@@ -79,7 +81,23 @@ struct PanelView: View {
     }
 
     private var placeholder: String {
-        session.conversation.isEmpty ? "Ask, or \(talkShortcut) to talk" : "Ask a follow-up"
+        session.conversation.isEmpty && session.sessionID == nil ? "Ask, or \(talkShortcut) to talk" : "Ask a follow-up"
+    }
+
+    /// After a relaunch, before the first question: the conversation goes on, and New is at hand.
+    private var continuingCard: some View {
+        HStack {
+            Text("Continuing your conversation")
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("continuing")
+            Spacer()
+            NewConversationButton(action: session.startNewConversation)
+        }
+        .font(.callout)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular, in: .rect(cornerRadius: 22))
     }
 
     /// While talking: the voice as bars, and under them what the microphone is doing.
@@ -231,13 +249,7 @@ private struct AnswerCard: View {
                 .accessibilityIdentifier("readingStatus")
             }
             Spacer()
-            Button(action: startNewConversation) {
-                Chip { Text("New  ⌘N") }
-            }
-            .buttonStyle(.plain)
-            .keyboardShortcut("n")
-            .accessibilityLabel("New conversation")
-            .accessibilityIdentifier("newConversation")
+            NewConversationButton(action: startNewConversation)
         }
         .font(.caption)
     }
@@ -399,5 +411,21 @@ private struct BreathingHalo: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// The New chip, Command-N: forgets the conversation and starts a fresh one.
+private struct NewConversationButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Chip { Text("New  ⌘N") }
+        }
+        .buttonStyle(.plain)
+        .font(.caption)
+        .keyboardShortcut("n")
+        .accessibilityLabel("New conversation")
+        .accessibilityIdentifier("newConversation")
     }
 }

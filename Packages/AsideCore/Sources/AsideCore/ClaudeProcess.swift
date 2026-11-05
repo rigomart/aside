@@ -25,6 +25,8 @@ public final class ClaudeProcess: Sendable {
         ] + (allowed.isEmpty ? [] : ["--allowedTools", allowed.joined(separator: ",")]) + [
             "--permission-prompts", "host", "--permission-prompt-tool", "stdio",
             "--append-system-prompt", memory.prompt,
+            // A backstop for Aside's own background compaction (decision 25).
+            "--autocompact", "150000",
         ]
     }
 

@@ -6,7 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let session = AssistantSession(
         dataDirectory: AppDelegate.dataDirectory,
         claudePath: UserDefaults.standard.string(forKey: "claudePath"),
-        speaker: SpeechSpeaker()
+        speaker: SpeechSpeaker(),
+        compactAt: AppDelegate.compactAt
     )
     private lazy var composer = Composer(session: session) {
         SpeechListener(source: AppDelegate.audioSource)
@@ -46,6 +47,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
         return URL.applicationSupportDirectory.appending(path: "Aside", directoryHint: .isDirectory)
+    }
+
+    /// 80,000 tokens, or the `compactAfterTokens` user default, which UI tests set low to see a compaction
+    /// without a long conversation.
+    private static var compactAt: Int {
+        let tokens = UserDefaults.standard.integer(forKey: "compactAfterTokens")
+        return tokens > 0 ? tokens : 80_000
     }
 
     /// The microphone, or the `audioInputFile` user default: an audio file heard as if spoken.
