@@ -46,6 +46,19 @@ struct ConversationTests {
         #expect(conversation.exchanges[0].activity == nil)
     }
 
+    /// Claude Code's own autocompact, if it ever runs mid-turn, shows instead of looking hung.
+    @Test func showsCompactionDuringATurn() {
+        var conversation = Conversation()
+        conversation.ask("And then?")
+        conversation.apply(.sessionStarted(id: "s1"))
+        conversation.apply(.contextUsed(tokens: 150_000))
+        conversation.apply(.compacting)
+        #expect(conversation.exchanges[0].activity == "Condensing the conversation…")
+        conversation.apply(.compacted(id: "s1"))
+        #expect(conversation.exchanges[0].activity == nil)
+        #expect(conversation.isResponding)
+    }
+
     @Test func failedTurnKeepsItsError() {
         var conversation = Conversation()
         conversation.ask("Hi?")
