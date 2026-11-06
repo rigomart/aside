@@ -46,6 +46,16 @@ extension XCUIApplication {
 
     /// Why listening stopped or failed, as its value, such as "Didn't hear anything.", in red under the field.
     var voiceMessage: XCUIElement { panel.descendants(matching: .any).matching(identifier: "voiceMessage").firstMatch }
+
+    /// Dictation's pill in the bottom-right corner. It never takes the keyboard.
+    var dictationPill: XCUIElement { dialogs["dictationPill"] }
+
+    /// While dictating, the line under the voice bars, as its label: "Starting the microphone…",
+    /// "Listening · Return pastes · Esc cancels", "Pasting…".
+    var dictationStatus: XCUIElement { dictationPill.descendants(matching: .any).matching(identifier: "dictationStatus").firstMatch }
+
+    /// After dictating, as its value: "Didn't hear anything", "Aside needs Accessibility to paste", or a failure.
+    var dictationMessage: XCUIElement { dictationPill.descendants(matching: .any).matching(identifier: "dictationMessage").firstMatch }
 }
 
 extension VerifyTestCase {
@@ -58,6 +68,34 @@ extension VerifyTestCase {
         addTeardownBlock { @MainActor in calculator.terminate() }
         calculator.typeKey(.escape, modifierFlags: [])
         return calculator
+    }
+
+    /// Launches TextEdit with an empty document, for a text field in another app. Fails rather than
+    /// relaunching a TextEdit that is already running, which may hold the owner's unsaved work.
+    @MainActor func launchTextEdit() -> XCUIApplication {
+        XCTAssertTrue(NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").isEmpty,
+                      "TextEdit is open; quit it before running this test")
+        let textEdit = XCUIApplication(bundleIdentifier: "com.apple.TextEdit")
+        textEdit.launchArguments = ["-ApplePersistenceIgnoreState", "YES", "-NSShowAppCentricOpenPanelInsteadOfUntitledFile", "NO"]
+        textEdit.launch()
+        addTeardownBlock { @MainActor in
+            // Empty the document, so TextEdit has nothing to keep or ask about.
+            textEdit.textViews.firstMatch.typeKey("a", modifierFlags: .command)
+            textEdit.textViews.firstMatch.typeKey(.delete, modifierFlags: [])
+            textEdit.terminate()
+        }
+        XCTAssertTrue(textEdit.textViews.firstMatch.waitForExistence(timeout: 10), "TextEdit opened no document")
+        return textEdit
+    }
+
+    @MainActor func text(of textEdit: XCUIApplication) -> String {
+        textEdit.textViews.firstMatch.value as? String ?? ""
+    }
+
+    /// Presses the verification dictation hotkey with `frontApp` in front, as the user does: the first press
+    /// starts dictating, the next pastes. Like `pressHotkey`, this takes about 10 s.
+    @MainActor func pressDictateHotkey(over frontApp: XCUIApplication) {
+        frontApp.typeKey(Self.dictateHotkey.key, modifierFlags: Self.dictateHotkey.modifiers)
     }
 
     /// What Calculator's display shows, without the invisible direction mark it puts in front.

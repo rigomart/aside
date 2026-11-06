@@ -7,9 +7,12 @@
                        Composer (the field) ──▶ AssistantSession ─▶ Conversation (what the panel shows)
                               │                        │
                        SpeechListener            ClaudeProcess, Narrator ─▶ SpeechSpeaker
+
+ Dictation hotkey ─▶ DictationController ─▶ Dictation ─▶ SpeechListener, Paster
+                             └─▶ PillPanel ─▶ DictationPill (SwiftUI)
 ```
 
-Built so far: the panel, hotkeys, menu bar item, URL scheme, the text loop (`AssistantSession`, `ClaudeProcess`, `Conversation`, `ClaudeEvent`, `Workspace`, `ClaudeLocator`), tools and approvals (`Tool`, `ApprovalRequest`), memory (`Memory`), voice input (`Composer`, `SpeechListener`), voice output (`Narrator`, `SpokenText`, `SpeechSpeaker`) and answer formatting (`AnswerBlock`), all but the panel in `AsideCore`.
+Built so far: the panel, hotkeys, menu bar item, URL scheme, the text loop (`AssistantSession`, `ClaudeProcess`, `Conversation`, `ClaudeEvent`, `Workspace`, `ClaudeLocator`), tools and approvals (`Tool`, `ApprovalRequest`), memory (`Memory`), voice input (`Composer`, `SpeechListener`), voice output (`Narrator`, `SpokenText`, `SpeechSpeaker`), answer formatting (`AnswerBlock`) and dictation (`Dictation`), all but the panel, the pill and `Paster` in `AsideCore`.
 
 ## Conversation
 
@@ -30,6 +33,14 @@ The panel shows only the newest question and its answer; earlier ones stay in cl
 `SpeechListener` runs `SpeechAnalyzer` with a `SpeechTranscriber` for the Mac's language, on device (decision 17). Each press: microphone permission (`AVAudioApplication`), the speech model (downloaded on first use; the panel says "Downloading the speech model…"), then an `AVAudioEngine` input tap converted to the analyzer's format. Words arrive as `heard` events about once a second with `fastResults`; finishing finalizes the last words before the text is sent. It takes about 100 ms from the press to listening. Failures (microphone denied or missing, unsupported language, recognition errors) show in red under the field, and so does a press that heard nothing.
 
 The `audioInputFile` user default replaces the microphone with a file, played in real time and then silence. UI tests set it (decision 18); `Info.plist` carries `NSMicrophoneUsageDescription`, without which macOS would kill Aside on first use of the microphone.
+
+## Dictation
+
+Control-Option-D (`.dictate` in `Hotkey.swift`) pastes what the owner says at the cursor of the app in front, without Claude (decision 28). `AppDelegate.dictate` hides the panel, stops reading aloud and calls `DictationController.toggle`. `Dictation` (`AsideCore`) is the state: `off`, `starting(reason)`, `listening`, `finishing` and `message`. It runs its own `SpeechListener`, keeps the last `heard` words and, when the listener ends after `finish`, trims them and hands them to `paste`. Empty words show "Didn't hear anything"; a listener error shows its message; a `.needsAccessibility` paste shows "Aside needs Accessibility to paste". Messages hide on their own (`Dictation.shownFor`, or the `dictationMessageSeconds` user default, which UI tests set long because each hotkey press takes XCUITest about 10 s). `cancel` (Esc, the panel opening via `PanelController.onShow`, the Accessibility button) stops listening and hides the pill.
+
+`DictationController` (app) follows `Dictation.state` with `Observations`. While `isDictating` it holds Return and Esc as hotkeys (`KeyboardShortcuts.events(for: Shortcut)`; cancelling the task unregisters them), so they reach Aside while the other app keeps the keyboard. It shows `PillPanel`, a borderless non-activating panel that can't become key, in the bottom-right corner of the screen the pointer is on, and hides it when the state is `off`. `DictationPill` shows `VoiceBars` and "return pastes · esc cancels" while listening, or the message.
+
+`Paster` checks `CGPreflightPostEventAccess`. Without it, it calls `CGRequestPostEventAccess` (macOS asks once) and leaves the words on the clipboard. With it, it copies every item on the clipboard in every type, writes the words (marked `org.nspasteboard.TransientType`), posts Command-V with only the Command flag through `CGEvent`, and 500 ms later writes the copy back unless the clipboard changed meanwhile. A paste within those 500 ms keeps the first copy, so the owner's clipboard is the one restored.
 
 ## Voice output
 

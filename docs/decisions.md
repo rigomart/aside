@@ -107,3 +107,15 @@ The menu bar item's Open Memory opens the file (decision 27).
 
 ## 27. Open Memory in the menu bar opens MEMORY.md in TextEdit
 Asked for by the owner on 2026-11-04. The menu bar item's menu has Open Memory, under Show Aside. It creates the file if Aside hasn't saved anything yet, then opens it in TextEdit, so the owner can read what Aside remembers and edit it. It uses TextEdit, not the Mac's default app for `.md` files, because on this Mac that default is Xcode. If the file can't be created or TextEdit can't open it, an alert says why. Revisit if the owner wants their own Markdown editor.
+
+## 28. Dictation: Control-Option-D pastes what you say at the cursor, without Claude
+Chosen by the owner on 2026-11-06, to cover what they used VoiceInk and SuperWhisper for. Control-Option-D is a toggle. The first press shows a small pill with the voice bars in the bottom-right corner and starts listening; the app in front keeps focus and its cursor. The second press, or Return, pastes what was heard at the cursor as one paste; Esc throws it away. Aside never presses Return in the other app, so the owner checks the text before sending it. Dictation never opens the panel or sends anything to Claude. The dictation hotkey closes an open panel first and stops anything being read aloud, so the microphone hears only the owner; opening the panel while dictating throws away what was heard, since Return and the field then belong to the panel.
+
+- **Pasting.** Aside puts the words on the clipboard, presses Command-V in the app in front, and half a second later puts back everything the clipboard held, in every type. If something else is copied in that half second, Aside leaves it. The dictated text is marked `org.nspasteboard.TransientType` so clipboard managers skip it.
+- **Accessibility.** Pressing keys in another app needs Accessibility; macOS asks the first time (`CGRequestPostEventAccess`). Until it's allowed, the pill says "Aside needs Accessibility to paste" and "What you said is on the clipboard.", with a button that opens that page of System Settings, and the words stay on the clipboard.
+- **Return and Esc** are hotkeys only while dictating, so they reach Aside without taking the keyboard from the other app.
+- **Messages.** "Didn't hear anything" shows for 2 s; problems (Accessibility, a failure to listen) for 8 s, or until the next press.
+- **English only.** Dictation listens in the Mac's language, like the panel (decision 17). The owner never dictates in Spanish on this Mac (2026-11-06), so there is no language switch.
+
+Left out of this version: a word list for technical terms (next, after the owner notes which words it gets wrong; Apple's `AnalysisContext.contextualStrings` and a `DictationTranscriber` custom language model are the two ways in), a Claude cleanup pass, hold-to-talk, and changing the hotkey in settings.
+

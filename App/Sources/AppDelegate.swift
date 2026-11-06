@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SpeechListener(source: AppDelegate.audioSource)
     }
     private lazy var panel = PanelController(session: session, composer: composer)
+    private lazy var dictation = DictationController(shownFor: AppDelegate.dictationMessageTime) {
+        SpeechListener(source: AppDelegate.audioSource)
+    }
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -23,6 +26,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         KeyboardShortcuts.onKeyUp(for: .talk) { [weak self] in
             self?.panel.talk()
+        }
+        KeyboardShortcuts.onKeyUp(for: .dictate) { [weak self] in
+            self?.dictate()
+        }
+        panel.onShow = { [weak self] in
+            self?.dictation.cancel()
         }
         Log.app.info("Launched")
     }
@@ -56,6 +65,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return tokens > 0 ? tokens : 80_000
     }
 
+    /// How long dictation's messages stay, or the `dictationMessageSeconds` user default for all of them, which
+    /// UI tests set long because each hotkey press takes XCUITest about 10 s.
+    private static var dictationMessageTime: @Sendable (Dictation.Message) -> Duration {
+        let seconds = UserDefaults.standard.integer(forKey: "dictationMessageSeconds")
+        guard seconds > 0 else { return { Dictation.shownFor($0) } }
+        return { _ in .seconds(seconds) }
+    }
+
     /// The microphone, or the `audioInputFile` user default: an audio file heard as if spoken.
     /// UI tests set it with a launch argument, since they can't talk.
     private static var audioSource: SpeechListener.Source {
@@ -87,6 +104,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let main = NSMenu()
         main.addItem(withTitle: "Edit", action: nil, keyEquivalent: "").submenu = edit
         return main
+    }
+
+    /// The dictation hotkey. Closes the panel and stops reading aloud, so the microphone hears only the owner.
+    private func dictate() {
+        panel.hide()
+        session.stopReadingAloud()
+        dictation.toggle()
     }
 
     @objc private func showPanel() {
