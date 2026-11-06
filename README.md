@@ -5,7 +5,8 @@ A personal macOS assistant. Press a hotkey, ask in a floating panel by typing or
 Requires macOS 26, Xcode 26 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`), and [Claude Code](https://code.claude.com) signed in.
 
 ```bash
-make run     # build and launch; Control-Option-Space opens the panel, Control-Option-Shift-Space talks
+make run     # build and launch; Control-Option-Space opens the panel, Control-Option-Shift-Space talks,
+             # Control-Option-D dictates into the app in front
 make check   # build and run tests
 ```
 

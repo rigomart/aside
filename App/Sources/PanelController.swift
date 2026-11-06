@@ -7,6 +7,7 @@ final class PanelController {
     private let panel: FloatingPanel
     private let session: AssistantSession
     private let composer: Composer
+    var onShow: () -> Void = {}
 
     init(session: AssistantSession, composer: Composer) {
         self.session = session
@@ -35,6 +36,7 @@ final class PanelController {
     /// activating the app, so the app the user was in stays frontmost. The field is at the bottom and the
     /// answer grows up from it. Starts claude, so it's ready for the question.
     func show() {
+        onShow()
         session.prepare()
         let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
         if let frame = screen?.visibleFrame {
@@ -45,6 +47,7 @@ final class PanelController {
     }
 
     func hide() {
+        guard panel.isVisible else { return }
         panel.orderOut(nil)
         Log.panel.info("Hidden")
     }

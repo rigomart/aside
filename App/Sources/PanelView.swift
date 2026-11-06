@@ -348,7 +348,7 @@ private struct Chip<Content: View>: View {
 }
 
 /// A key as printed on the keyboard, for shortcut hints.
-private struct Keycap: View {
+struct Keycap: View {
     let key: String
     init(_ key: String) { self.key = key }
 
@@ -362,24 +362,24 @@ private struct Keycap: View {
 
 /// Bars that rise from the middle outward with the voice, like an equalizer, and flutter a little so
 /// they look alive. Silence is a row of dots.
-private struct VoiceBars: View {
+struct VoiceBars: View {
     /// How loud the microphone is, from 0 to 1.
     let level: Float
-    private static let count = 29
-    private static let height: CGFloat = 44
+    var count = 29
+    var height: CGFloat = 44
     private static let barWidth: CGFloat = 6
 
     var body: some View {
         TimelineView(.animation) { context in
             let time = context.date.timeIntervalSinceReferenceDate
             HStack(spacing: 4) {
-                ForEach(0..<Self.count, id: \.self) { index in
+                ForEach(0..<count, id: \.self) { index in
                     Capsule()
                         .fill(PanelView.listeningColor)
                         .frame(width: Self.barWidth, height: barHeight(index, at: time))
                 }
             }
-            .frame(height: Self.height)
+            .frame(height: height)
         }
         .animation(.easeOut(duration: 0.1), value: level)
         .accessibilityHidden(true)
@@ -387,11 +387,11 @@ private struct VoiceBars: View {
 
     /// Tallest in the middle, falling off toward the ends.
     private func barHeight(_ index: Int, at time: TimeInterval) -> CGFloat {
-        let middle = Double(Self.count - 1) / 2
+        let middle = Double(count - 1) / 2
         let distance = abs(Double(index) - middle) / middle
         let shape = exp(-distance * distance * 2.2)
         let flutter = 0.75 + 0.25 * sin(time * 13 + Double(index) * 1.7)
-        return max(Self.barWidth, Self.height * CGFloat(Double(level) * shape * flutter))
+        return max(Self.barWidth, height * CGFloat(Double(level) * shape * flutter))
     }
 }
 

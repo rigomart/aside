@@ -74,3 +74,15 @@ UI tests against the real claude prove that the conversation survives quitting a
 2. Restart the Mac, open the panel and ask again: it still gives the same number.
 3. Press New, then ask "What number did you pick?": it doesn't know. (A fact about you saved to memory would still be known; that's decision 26, not this.)
 4. Have a long conversation over a day or two: paste long texts, ask for pages to be read. Every answer should start about as fast as at the beginning; the panel never says "Condensing the conversation…" (if it does, tell the agent). Afterwards, ask about something from early in the conversation: it should remember the gist.
+
+## Dictation
+
+UI tests prove, with a recorded clip into TextEdit, that Control-Option-D shows the pill while TextEdit stays in front, that the second press and Return paste the words at the cursor without pressing Return, that the clipboard text comes back, that Esc pastes nothing, that silence shows "Didn't hear anything", that the hotkey closes an open panel and opening the panel stops dictating, and that without Accessibility the pill says so and the words stay on the clipboard. These steps cover your microphone, your apps and the permission.
+
+1. In TextEdit, press Control-Option-D. The first time, macOS asks to let Aside use the microphone if it hasn't already; allow it. Say a sentence and press Control-Option-D again. macOS asks to let Aside control this computer using accessibility features: click Open System Settings, but leave Aside's switch off for now. The pill says "Aside needs Accessibility to paste" and "What you said is on the clipboard." Press Command-V: your sentence pastes.
+2. Click the pill's Open Accessibility Settings button (dictate again first if the pill is gone): System Settings opens on Privacy & Security › Accessibility. Turn Aside on. Dictate again: the words paste at the cursor.
+3. In your terminal (Ghostty), at a prompt, dictate a sentence and press Return to finish: the words appear at the prompt, and the command doesn't run until you press Return yourself.
+4. In your code editor and in a browser text field (a search box, a chat message), dictate a sentence: it lands where the cursor was, as one paste (one Command-Z undoes it).
+5. Copy an image (Command-Control-Shift-4 takes a screenshot to the clipboard), dictate into any field, then paste into a Notes note or Preview: the image comes back, not the dictated words.
+6. Put Safari in full screen and dictate into its address bar: the pill shows over Safari and the words paste there.
+7. Press Control-Option-D, say something, then press Esc: the pill goes away, nothing is pasted, and the orange microphone dot goes out.

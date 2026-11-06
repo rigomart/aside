@@ -9,11 +9,14 @@ class VerifyTestCase: XCTestCase {
     /// and Carbon hotkeys are not exclusive, so sharing them would open both panels on one press.
     static let hotkey: (key: String, modifiers: XCUIElement.KeyModifierFlags) = (" ", [.control, .option, .command])
     static let talkHotkey: (key: String, modifiers: XCUIElement.KeyModifierFlags) = (" ", [.control, .option, .shift, .command])
+    /// Control-Option-Command-D dictates; the owner's copy uses Control-Option-D.
+    static let dictateHotkey: (key: String, modifiers: XCUIElement.KeyModifierFlags) = ("d", [.control, .option, .command])
 
     /// The same shortcuts as KeyboardShortcuts stores them. A launch argument puts them in the argument domain,
     /// which wins over the stored default; the outer quotes keep each a string rather than a plist.
     private static let hotkeyDefault = #""{\"carbonModifiers\":6400,\"carbonKeyCode\":49}""#
     private static let talkHotkeyDefault = #""{\"carbonModifiers\":6912,\"carbonKeyCode\":49}""#
+    private static let dictateHotkeyDefault = #""{\"carbonModifiers\":6400,\"carbonKeyCode\":2}""#
 
     /// Text unique to this test, for anything the test types or creates.
     let stamp = String(UUID().uuidString.prefix(6))
@@ -38,6 +41,9 @@ class VerifyTestCase: XCTestCase {
     /// Pass it to `launch(heard:)` to stand in for the microphone.
     static let spokenQuestion = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "spoken-question.m4a").path
 
+    /// `UITests/Support/silence.m4a`: 1.5 s of nothing, for hearing nothing.
+    static let silence = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "silence.m4a").path
+
     /// What Aside Verify writes in the field after hearing `spokenQuestion`.
     static let spokenQuestionText = "What is the tallest mountain in Peru?"
 
@@ -48,7 +54,8 @@ class VerifyTestCase: XCTestCase {
     @MainActor func launch(claude: String? = nil, heard: String? = nil, _ arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-ApplePersistenceIgnoreState", "YES",
-                               "-KeyboardShortcuts_togglePanel", Self.hotkeyDefault, "-KeyboardShortcuts_talk", Self.talkHotkeyDefault]
+                               "-KeyboardShortcuts_togglePanel", Self.hotkeyDefault, "-KeyboardShortcuts_talk", Self.talkHotkeyDefault,
+                               "-KeyboardShortcuts_dictate", Self.dictateHotkeyDefault]
             + (claude.map { ["-claudePath", $0] } ?? [])
             + (heard.map { ["-audioInputFile", $0] } ?? [])
             + arguments
