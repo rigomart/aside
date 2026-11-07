@@ -1,6 +1,6 @@
 # Manual tests
 
-Checks no automated test can reach: the real microphone, how something looks or feels, full-screen apps, Spaces, and focus going back to other apps. A step that a unit or UI test already proves doesn't belong here; the agent's report lists what tests proved. Run the section for the milestone being handed over, plus anything an agent names in its report. Start each from `make run`, with Aside not already running elsewhere.
+Checks no automated test can reach: the real microphone, how something looks or feels, full-screen apps, Spaces, and focus going back to other apps. A step that a unit or UI test already proves doesn't belong here; the agent's report lists what tests proved. Run the section for the milestone being handed over, plus anything an agent names in its report. Start each from `make run`, with Aside not already running elsewhere, except Install, which starts from `make install`.
 
 ## Panel (M0)
 
@@ -86,3 +86,13 @@ UI tests prove, with a recorded clip into TextEdit, that Control-Option-D shows 
 5. Copy an image (Command-Control-Shift-4 takes a screenshot to the clipboard), dictate into any field, then paste into a Notes note or Preview: the image comes back, not the dictated words.
 6. Put Safari in full screen and dictate into its address bar: the pill shows over Safari and the words paste there.
 7. Press Control-Option-D, say something, then press Esc: the pill goes away, nothing is pasted, and the orange microphone dot goes out.
+
+## Install
+
+Unit tests prove which copy turns Launch at Login on by itself. These steps cover installing and logging in.
+
+1. From the main checkout, run `make install`: Aside quits if it was running, and the copy in Applications opens.
+2. Click the speech-bubble icon in the menu bar: Launch at Login has a checkmark. System Settings › General › Login Items & Extensions lists Aside.
+3. Dictate with Control-Option-D and talk with Control-Option-Shift-Space: neither asks for the microphone or Accessibility again.
+4. Log out and back in: Aside is running, and its hotkeys work.
+5. Turn Launch at Login off in the menu, then run `make install` again: it stays off.

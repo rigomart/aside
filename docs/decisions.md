@@ -119,3 +119,10 @@ Chosen by the owner on 2026-11-06, to cover what they used VoiceInk and SuperWhi
 
 Left out of this version: a word list for technical terms (next, after the owner notes which words it gets wrong; Apple's `AnalysisContext.contextualStrings` and a `DictationTranscriber` custom language model are the two ways in), a Claude cleanup pass, hold-to-talk, and changing the hotkey in settings.
 
+
+## 29. `make install` puts Aside in /Applications, and the installed copy opens at login
+Asked for by the owner on 2026-11-06, so dictation is always there. `make install`, run from the main checkout, builds the Release app, quits any running Aside, replaces `/Applications/Aside.app` and opens it. To update, pull and run it again. Settings, memory and the conversation live outside the app, so they stay. The app keeps the same signature (decision 4), so the microphone and Accessibility grants carried over in the owner's check.
+
+The menu bar item has Launch at Login (`SMAppService.mainApp`), with a checkmark when it's on. The copy in `/Applications` turns it on the first time it starts. After that, Aside leaves it as the owner or System Settings set it. If turning it on fails, an alert says why and the next launch tries again. If macOS wants approval, the checkmark is a dash and clicking it opens System Settings. Copies built in a checkout (`make run`, Aside Verify) have no Launch at Login item and never turn it on, since they share the installed copy's bundle ID and would change the owner's login item.
+
+A Homebrew cask was considered and left for later. GitHub's runners can't sign with the owner's certificate, so every update would ask for the permissions again. Without a Developer ID, macOS blocks a downloaded copy. And the repo is public, so the app would be too. Revisit if Aside goes on a second Mac.

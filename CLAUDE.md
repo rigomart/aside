@@ -10,7 +10,8 @@ The owner makes product decisions and does not read or review code. You own the 
 | --- | --- |
 | `make check` | Build the app and run the core tests. Must pass before you finish. |
 | `make test` | Core package tests only (`swift test`, seconds). |
-| `make run` | Build, quit any running copy, launch. |
+| `make run` | Build, quit any running copy (the owner's installed one too), launch. When done, `open /Applications/Aside.app` to give the owner theirs back. |
+| `make install` | Build Release, replace `/Applications/Aside.app`, open it. The owner's copy; see decision 29. |
 | `make logs` | Stream the app's logs (`os.Logger`, subsystem `com.rigomart.aside`). |
 | `make generate` | Regenerate `Aside.xcodeproj` from `project.yml`. `build` does this. |
 | `open aside://show` | Open the panel without the hotkey (`hide`, `toggle` also work). |

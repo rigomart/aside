@@ -5,9 +5,11 @@ A personal macOS assistant. Press a hotkey, ask in a floating panel by typing or
 Requires macOS 26, Xcode 26 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`), and [Claude Code](https://code.claude.com) signed in.
 
 ```bash
-make run     # build and launch; Control-Option-Space opens the panel, Control-Option-Shift-Space talks,
-             # Control-Option-D dictates into the app in front
+make install # build, put Aside in /Applications and open it; it opens at login from then on
+make run     # build and launch a development copy instead
 make check   # build and run tests
 ```
+
+Control-Option-Space opens the panel, Control-Option-Shift-Space talks, and Control-Option-D dictates into the app in front. To update, pull and run `make install` again.
 
 Working on it: start with [CLAUDE.md](CLAUDE.md) and [docs/](docs/).

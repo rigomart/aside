@@ -2,7 +2,7 @@ import AppKit
 import AsideCore
 import KeyboardShortcuts
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let session = AssistantSession(
         dataDirectory: AppDelegate.dataDirectory,
         claudePath: UserDefaults.standard.string(forKey: "claudePath"),
@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SpeechListener(source: AppDelegate.audioSource)
     }
     private var statusItem: NSStatusItem?
+    private var launchAtLoginItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = makeStatusItem()
@@ -33,7 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onShow = { [weak self] in
             self?.dictation.cancel()
         }
-        Log.app.info("Launched")
+        LoginItem.turnOnIfFirstInstalledLaunch()
+        Log.app.info("Launched from \(Bundle.main.bundlePath, privacy: .public)")
     }
 
     /// `aside://show`, `aside://hide`, `aside://toggle`. Lets scripts, Shortcuts, and
@@ -86,6 +88,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Show Aside", action: #selector(showPanel), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Open Memory", action: #selector(openMemory), keyEquivalent: "").target = self
         menu.addItem(.separator())
+        if LoginItem.isAvailable {
+            let launchAtLogin = menu.addItem(withTitle: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+            launchAtLogin.target = self
+            launchAtLoginItem = launchAtLogin
+            menu.addItem(.separator())
+            menu.delegate = self
+        }
         menu.addItem(withTitle: "Quit Aside", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
         return item
@@ -111,6 +120,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.hide()
         session.stopReadingAloud()
         dictation.toggle()
+    }
+
+    /// Shows whether Launch at Login is on each time the menu opens, since System Settings can change it. A dash
+    /// means macOS is waiting for the owner to allow it there.
+    func menuWillOpen(_ menu: NSMenu) {
+        launchAtLoginItem?.state = switch LoginItem.status {
+        case .enabled: .on
+        case .requiresApproval: .mixed
+        default: .off
+        }
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        LoginItem.toggle()
     }
 
     @objc private func showPanel() {
