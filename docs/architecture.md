@@ -101,6 +101,8 @@ Adding a tool:
 ## Build and signing
 
 - XcodeGen generates the project from `project.yml`.
+- `make install` builds the Release configuration and copies it to `/Applications/Aside.app`; `make run` launches the Debug build from `build/`. Both have the same bundle ID, so `make stop` quits either (decision 29).
+- Launch at Login is `SMAppService.mainApp` (`App/Sources/LoginItem.swift`). Only the copy in `/Applications` has it (`LaunchAtLogin.isInstalled`). The menu bar item's Launch at Login turns it on and off and shows its state each time the menu opens, with a dash while macOS waits for approval in System Settings. On the first launch from `/Applications` (`LaunchAtLogin.turnsOnByItself`), Aside turns it on. The `launchAtLoginSet` default records a change that took, so Aside never turns it on again by itself, and a failed first try is retried on the next launch. A failure shows in an alert.
 - Builds are signed with the owner's Apple Development certificate (team `WHZ7FDCNMT`). Privacy grants follow the signature, so a stable identity means microphone and speech permissions survive rebuilds. There is no hardened runtime, no sandbox (a sandboxed app can't spawn `claude`), and no notarization.
 - The bundle ID is `com.rigomart.aside`.
 - The `Verify` build configuration builds Aside Verify for UI tests: bundle ID `com.rigomart.aside.verify`, URL scheme `aside-verify://`. It runs beside the owner's copy without sharing defaults, privacy grants or `aside://`. UI tests give it the hotkeys Control-Option-Command-Space (open) and Control-Option-Shift-Command-Space (talk) through launch arguments, because Carbon hotkeys aren't exclusive and a shared one would open both panels.

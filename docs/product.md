@@ -27,8 +27,9 @@ The Claude desktop app's quick entry opens the full app. ChatGPT's Option-Space 
 | 3.5 | New look: voice-first glass pill in the bottom-right corner, voice bars while talking, captions while reading (decisions 21–23) | Done, pending the owner's manual checks |
 | 3.6 | One conversation until New, compacted in the background, and Aside's own memory with Open Memory in the menu bar (decisions 25–27) | Done, pending the owner's manual checks |
 | 3.7 | Dictation: Control-Option-D pastes what you say at the cursor in any app, without Claude (decision 28) | Done, pending the owner's manual checks |
+| 3.8 | Install: `make install` puts Aside in Applications, and it opens at login (decision 29) | Done |
 | 4 | Tools: calendar read and create with confirmation in the panel, notes | Next. The groundwork is done: one tool list, and Allow and Deny in the panel (decision 24) |
-| 5 | Polish: settings, launch at login | |
+| 5 | Polish: settings | |
 
 Each milestone ends with a short checklist in [manual-tests.md](manual-tests.md) that the owner runs.
 
