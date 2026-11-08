@@ -13,12 +13,17 @@ final class Paster {
     /// What the clipboard held before the last paste, until it's put back.
     private var saved: [NSPasteboardItem]?
     private var restore: Task<Void, Never>?
+    private var askedForAccessibility = false
 
     func paste(_ text: String) throws -> Dictation.PasteResult {
         let pasteboard = NSPasteboard.general
-        guard CGPreflightPostEventAccess() else {
-            // macOS asks the first time; after that, only System Settings changes it.
-            CGRequestPostEventAccess()
+        // Not `CGPreflightPostEventAccess`: it keeps its first answer until quit, so it misses a change in System Settings.
+        guard AXIsProcessTrusted() else {
+            if !askedForAccessibility {
+                askedForAccessibility = true
+                // The value of `kAXTrustedCheckOptionPrompt`, which Swift 6 won't read: it's a global `var`.
+                AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+            }
             restore?.cancel()
             saved = nil
             pasteboard.clearContents()
